@@ -13,7 +13,7 @@
   | `Gemini` | LLM | 모델 목록 고정, 무료 티어 |
   | `DeepL` | 번역 전용 | 월 50만 자 |
   | `LM Studio` | LLM (로컬) | 키 불필요, 무제한 |
-  | `로컬 (Hy-MT2)` | 내장 | 키 불필요, 무제한 |
+  | `오프라인 번역 (무료)` | 내장 | 키 불필요, 무제한 |
   | `DeepSeek` | LLM | 모델 2종(`deepseek-flash`, `deepseek-v4-pro`) |
   | `Groq` | LLM | 서버에서 모델 목록 자동 조회 |
   | `OpenAI` | LLM | 서버에서 모델 목록 자동 조회 |
@@ -31,7 +31,7 @@
     사용 중 메모리는 약 2GB (별도 프로세스, 앱 종료 시 함께 종료)
 
 ## Q4 모델 다운로드 상세 정보
-내장 모델(`로컬 (Hy-MT2)`)을 처음 사용하거나 수동으로 다운로드하려면 다음과 같이 두 파일이 자동으로 다운로드됩니다:
+내장 모델(`오프라인 번역 (무료)`, Hy-MT2)을 처음 사용하거나 수동으로 다운로드하려면 다음과 같이 두 파일이 자동으로 다운로드됩니다:
 
 1. **llama-server 실행 파일** (약 32MB)
    - URL: `https://github.com/ggml-org/llama.cpp/releases/download/b11254/llama-b11254-bin-win-vulkan-x64.zip`

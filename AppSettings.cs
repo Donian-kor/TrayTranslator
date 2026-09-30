@@ -99,8 +99,8 @@ sealed class AppSettings
 
     public static readonly string[] Providers =
     [
-        "DeepSeek", "Gemini", "Groq", "LM Studio", "OpenAI", "로컬 (Hy-MT2)",
-        "DeepL", "Google 번역", "Microsoft 번역", "Papago",
+        "DeepSeek", "Gemini", "Groq", "LM Studio", "OpenAI",
+        "DeepL", "Google 번역", "Microsoft 번역", "Papago", "오프라인 번역 (무료)",
     ];
 
     /// <summary>드롭다운 그룹 표시 순서. (AI 모델 / 번역 전용)</summary>
@@ -138,7 +138,7 @@ sealed class AppSettings
         ProviderKind.Gemini => "Gemini",
         ProviderKind.DeepL => "DeepL",
         ProviderKind.LmStudio => "LM Studio",
-        ProviderKind.Builtin => "로컬 (Hy-MT2)",
+        ProviderKind.Builtin => "오프라인 번역 (무료)",
         ProviderKind.DeepSeek => "DeepSeek",
         ProviderKind.Groq => "Groq",
         ProviderKind.OpenAi => "OpenAI",
@@ -217,6 +217,8 @@ sealed class AppSettings
         {
             if (DisplayName(kind) == name) return kind;
         }
+        // 구 표시 이름 (v1.5까지 "로컬 (Hy-MT2)")
+        if (name == "로컬 (Hy-MT2)") return ProviderKind.Builtin;
         return ProviderKind.Builtin;
     }
 
@@ -333,6 +335,12 @@ sealed class AppSettings
 
             // 평문 키가 남아있었다면 즉시 암호화해 덮어쓴다.
             // 사용자가 설정 창을 열기 전에 이미 보호된다.
+            // 구 엔진 표시 이름도 현행 이름으로 고친다.
+            if (s.Provider == "로컬 (Hy-MT2)")
+            {
+                s.Provider = DisplayName(ProviderKind.Builtin);
+                migrated = true;
+            }
             if (migrated) s.Save();
             return s;
         }

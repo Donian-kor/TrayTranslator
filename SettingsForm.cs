@@ -235,7 +235,12 @@ sealed class SettingsForm : Form
         _cmbModel = new ComboBox { Width = 356, DropDownStyle = ComboBoxStyle.DropDown };
         _cmbModel.Items.AddRange(AppSettings.Models);
 
-        _lblFile = new Label { Size = new Size(356, 40), ForeColor = Color.Gray };
+        _lblFile = new Label
+        {
+            Size = new Size(356, 48),
+            ForeColor = Color.Gray,
+            Font = new Font("Segoe UI", 11f),
+        };
         _btnBrowse = new Button { Text = "내장 모델 찾기...", AutoSize = false };
         _btnBrowse.Click += OnBrowse;
         _btnDownload = new Button { Text = "내장 모델 다운로드 (1.1GB)", AutoSize = false };
@@ -571,7 +576,7 @@ sealed class SettingsForm : Form
         if (builtin)
         {
             y = 60;
-            _lblFile.Location = new Point(12, y); y += 44;
+            _lblFile.Location = new Point(12, y); y += 52;
             // 버튼 너비는 텍스트 실측 + 여유분. 한 행에 안 들어가면 세로로 쌓음.
             int bw = TextRenderer.MeasureText(_btnBrowse.Text, _btnBrowse.Font).Width + 30;
             int dw = TextRenderer.MeasureText(_btnDownload.Text, _btnDownload.Font).Width + 30;
