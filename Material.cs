@@ -68,8 +68,9 @@ static class Material
     // 트레이 우클릭 메뉴용 머티리얼 렌더러 (흰 바탕·인디고 하이라이트·얇은 테두리)
     public sealed class MaterialMenuColors : ProfessionalColorTable
     {
-        private static readonly Color Selected = Color.FromArgb(0x3F, 0x51, 0xB5);
-        private static readonly Color Pressed = Color.FromArgb(0x30, 0x3F, 0x9F);
+        private static readonly Color Selected = Color.FromArgb(0xC8, 0xE6, 0xC9);
+        private static readonly Color Pressed = Color.FromArgb(0xA5, 0xD6, 0xA7);
+        private static readonly Color SelectedBorder = Color.FromArgb(0x81, 0xC7, 0x84);
         private static readonly Color Line = Color.FromArgb(0xE0, 0xE0, 0xE0);
 
         public override Color MenuItemSelected => Selected;
@@ -99,9 +100,10 @@ static class Material
             menu.Font = new Font("Segoe UI", 9f);
             menu.ShowImageMargin = false;
             menu.BackColor = Color.White;
+            // 글씨색은 건드리지 않는다. 선택 상태에서도 어두운 글씨가 유지되어
+            // 연녹색 하이라이트 위에서 읽힌다 (어두운 색을 강제하면 파란 바탕에 묻힘).
             foreach (ToolStripItem i in menu.Items)
             {
-                i.ForeColor = Color.FromArgb(0x21, 0x21, 0x21);
                 if (i is ToolStripMenuItem mi && mi.HasDropDownItems && mi.DropDown is ToolStripDropDownMenu sub)
                     ThemeMenu(sub);
             }
