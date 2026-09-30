@@ -47,11 +47,18 @@
 
 ## 사용법
 
-1. API 키 발급 (LM Studio는 키 불필요, 서버만 켜두기)
+1. API 키 발급 (LM Studio·오프라인 번역은 키 불필요)
     - Gemini: https://aistudio.google.com (카드 불필요)
     - DeepL: https://www.deepl.com/pro-api (Free 플랜, 카드 등록 필요)
+    - DeepSeek: https://platform.deepseek.com
+    - Groq: https://console.groq.com/keys
+    - OpenAI: https://platform.openai.com/api-keys
+    - Google 번역: https://console.cloud.google.com (Translation API 사용 설정 후 키 발급)
+    - Papago: https://developers.naver.com (애플리케이션 등록 → Papago NMT, Client ID + Secret)
+    - Microsoft 번역: https://azure.microsoft.com (Translator 리소스 → 키, 지역 리소스는 리전도 입력)
     - LM Studio: 로컬 서버 시작 후 모델 로드 (기본 http://localhost:1234)
-    > 모든 API 키는 개인이 직접 발급받아 사용해야 합니다. (LM Studio는 예외)
+    - 오프라인 번역: 설정에서 모델 파일 찾기 또는 Q4 다운로드 (키 불필요)
+    > 모든 API 키는 개인이 직접 발급받아 사용해야 합니다. (LM Studio·오프라인 번역은 예외)
 2. `TrayTranslator.exe` 실행 → 트레이 아이콘 우클릭 → **설정** → **번역 엔진** 선택 →
    키/주소/모델 입력 → **연결 테스트** → 저장
    - 핫키도 설정에서 변경 가능 (Ctrl/Alt/Shift/Win 중 1개 이상 + A-Z, 0-9, F1-F12)
@@ -64,7 +71,7 @@
 5. 번역 대상 언어: 트레이 우클릭 → **번역 대상 언어** (8개 언어)
 6. 긴 파일: 트레이 우클릭 → **파일 번역...** → txt 선택 → 문장 단위로 나눠 순차 번역 후
    `{원본}.{언어코드}.txt` 저장 (예: manual.ko.txt). 조각 크기는 엔진별 최적값
-   (DeepL 3만자, Gemini 8천자, LM 2천자, 내장 1.5천자)
+   (DeepL 3만자, Gemini 8천자, LM 2천자, 오프라인 ctx 비례, Papago 4천자)
 
 > 주의: API 키를 복사한 직후에는 클립보드에 키가 남아있습니다.
 > 텍스트를 드래그하지 않고 핫키를 누르면 키가 번역 대상으로 잡히므로,
@@ -146,7 +153,7 @@
 - `TrayAppContext.cs` Provider switch에 케이스를 추가하고 조각 크기(`ChunkSize`) 분기 로직을 업데이트합니다.
 - 각 전용 클라이언트(`DeepLClient`, `GoogleTranslateClient`, `PapagoClient`, `MsTranslatorClient`)는 이미 `TranslateAsync(string, string)`을 구현하고 있습니다. Papago는 Client ID + Client Secret 2칸을 입력받습니다.
 
-### 내장 엔진 (로컬 Hy-MT2)
+### 내장 엔진 (오프라인 번역)
 
 - `AppSettings.cs`에 `BuiltinModelPath` 및 `BuiltinContextSize` 유지 (이미 기본 제공).
 - llama-server 다운로드 및 버전 관리는 `BuiltinClient.DownloadServerAsync()` / `DownloadModelAsync()`을 이용합니다.
