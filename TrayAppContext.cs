@@ -36,6 +36,15 @@ sealed class TrayAppContext : ApplicationContext
         UpdateTrayText();
         _tray.DoubleClick += (_, _) => OpenSettings();
 
+        // 저장된 엔진명이 알 수 없으면(수동 편집·손상) 몰래 기본값으로 두지 않고 선택을 강제한다.
+        if (!AppSettings.IsKnownProvider(_settings.Provider))
+        {
+            MessageBox.Show(
+                $"알 수 없는 번역 엔진 설정입니다: '{_settings.Provider}'\n사용할 엔진을 직접 선택하세요.",
+                "TrayTranslator", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            OpenSettings();
+        }
+
         _hotkey = new HotkeyWindow(_settings.HotkeyMods, _settings.HotkeyVk, _settings.HotkeyDisplay);
         _hotkey.Pressed += OnHotkey;
 
@@ -90,6 +99,11 @@ sealed class TrayAppContext : ApplicationContext
     private async void TranslateFile()
     {
         if (_busy) return;
+        if (!AppSettings.IsKnownProvider(_settings.Provider))
+        {
+            ShowPopup("번역 엔진 설정이 올바르지 않습니다. 트레이 우클릭 → 설정에서 엔진을 선택하세요.");
+            return;
+        }
         using var dlg = new OpenFileDialog
         {
             Filter = "텍스트 파일 (*.txt)|*.txt",
@@ -196,6 +210,11 @@ sealed class TrayAppContext : ApplicationContext
     private async void OnHotkey()
     {
         if (_busy) return;
+        if (!AppSettings.IsKnownProvider(_settings.Provider))
+        {
+            ShowPopup("번역 엔진 설정이 올바르지 않습니다. 트레이 우클릭 → 설정에서 엔진을 선택하세요.");
+            return;
+        }
         if (AppSettings.NeedsKey(_settings.Engine) && string.IsNullOrWhiteSpace(ActiveKey))
         {
             ShowPopup($"{_settings.Provider} API 키가 없습니다. 트레이 우클릭 → 설정에서 입력하세요.");

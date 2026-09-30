@@ -197,6 +197,9 @@ sealed class AppSettings
         ProviderKind.DeepL or ProviderKind.GoogleTranslate
         or ProviderKind.Papago or ProviderKind.MsTranslator);
 
+    /// <summary>알려진 엔진 표시 이름인지. 모르면 조용히 기본값으로 두지 않고 사용자에게 선택시킨다.</summary>
+    public static bool IsKnownProvider(string? name) => Providers.Contains(name ?? "");
+
     /// <summary>표시 이름 → enum. 알 수 없는 값은 Gemini로 대체(구버전/손상 파일 대비).</summary>
     public static ProviderKind ParseProvider(string? name)
     {
