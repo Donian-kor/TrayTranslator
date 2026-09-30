@@ -30,9 +30,10 @@ $notes = @(
     '- Windows 10/11 64bit, .NET 10 런타임'
 ) -join "`n"
 
-$body = @{ tag_name = $tag; name = $tag; body = $notes; draft = $false; prerelease = $false } | ConvertTo-Json
+$json = @{ tag_name = $tag; name = $tag; body = $notes; draft = $false; prerelease = $false } | ConvertTo-Json
+$body = [Text.Encoding]::UTF8.GetBytes($json)
 try {
-    $rel = Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$owner/$repo/releases" -Headers $headers -Body $body -ContentType 'application/json'
+    $rel = Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$owner/$repo/releases" -Headers $headers -Body $body -ContentType 'application/json; charset=utf-8'
 } catch {
     Write-Output ("CREATE_FAILED:" + $_.Exception.Message.Split([Environment]::NewLine)[0])
     exit 1
