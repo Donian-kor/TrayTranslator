@@ -99,9 +99,9 @@ sealed class AppSettings
 
     public static readonly string[] Providers =
     [
-        "Gemini", "DeepL", "LM Studio", "로컬 (Hy-MT2)",
-        "DeepSeek", "Groq", "OpenAI",
-        "Google 번역", "Papago", "Microsoft 번역",
+        "로컬 (Hy-MT2)", "LM Studio",
+        "DeepL", "DeepSeek", "Gemini", "Google 번역",
+        "Groq", "Microsoft 번역", "OpenAI", "Papago",
     ];
 
     /// <summary>
@@ -141,13 +141,29 @@ sealed class AppSettings
     };
 
     /// <summary>OpenAI 호환 엔진의 기본 서버 주소와 고정 모델 목록.</summary>
-    public sealed record OpenAiService(string Name, string BaseUrl, string[] Models, string KeyUrl);
+    public sealed record OpenAiService(string Name, string BaseUrl, ModelOption[] Models, string KeyUrl);
+
+    /// <summary>모델 ID ↔ 표시 이름. 드롭다운에는 Name을 보여주고 저장은 Id로 한다.</summary>
+    public sealed record ModelOption(string Id, string Name);
+
+    public static readonly ModelOption[] GeminiModelOptions =
+    [
+        new("gemini-2.5-flash-lite", "Flash-Lite 2.5 (빠름·경량)"),
+        new("gemini-2.0-flash-lite", "Flash-Lite 2.0"),
+        new("gemini-2.5-flash", "Flash 2.5 (고성능)"),
+    ];
+
+    public static string ModelName(ModelOption[] opts, string id) =>
+        opts.FirstOrDefault(o => o.Id == id)?.Name ?? id;
+
+    public static string ModelId(ModelOption[] opts, string name) =>
+        opts.FirstOrDefault(o => o.Name == name)?.Id ?? name;
 
     public static readonly OpenAiService[] OpenAiServices =
     [
         new("LM Studio", "http://localhost:1234", [], "설치: https://lmstudio.ai"),
         new("DeepSeek", "https://api.deepseek.com",
-            ["deepseek-flash", "deepseek-v4-pro"],
+            [new("deepseek-flash", "DeepSeek Flash (빠름)"), new("deepseek-v4-pro", "DeepSeek V4 Pro (고성능)")],
             "https://platform.deepseek.com"),
         new("Groq", "https://api.groq.com/openai", [],
             "https://console.groq.com/keys"),
@@ -217,12 +233,7 @@ sealed class AppSettings
 
     public string Model { get; set; } = "gemini-2.5-flash-lite";
 
-    public static readonly string[] Models =
-    [
-        "gemini-2.5-flash-lite",
-        "gemini-2.0-flash-lite",
-        "gemini-2.5-flash",
-    ];
+    public static readonly string[] Models = [.. GeminiModelOptions.Select(o => o.Id)];
 
     public static readonly string[] Languages =
         ["한국어", "English", "日本語", "中文", "Español", "Français", "Deutsch", "Tiếng Việt"];

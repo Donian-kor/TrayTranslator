@@ -158,7 +158,7 @@ sealed class SettingsForm : Form
         };
         _provider.Items.AddRange(AppSettings.Providers);
         _provider.SelectedItem = AppSettings.Providers.Contains(settings.Provider)
-            ? settings.Provider : AppSettings.Providers[0];
+            ? settings.Provider : AppSettings.DisplayName(AppSettings.ProviderKind.Gemini);
         _provider.SelectedIndexChanged += (_, _) => SwitchProvider();
 
         _lblLang = new Label { Text = "번역 대상 언어:", Location = new Point(196, 12), AutoSize = true };
@@ -248,7 +248,8 @@ sealed class SettingsForm : Form
         if (IsLM) _ = RefreshLmModelsAsync();
     }
 
-    private string Provider => _provider.SelectedItem?.ToString() ?? AppSettings.Providers[0];
+    private string Provider => _provider.SelectedItem?.ToString()
+        ?? AppSettings.DisplayName(AppSettings.ProviderKind.Gemini);
     private AppSettings.ProviderKind Engine => AppSettings.ParseProvider(Provider);
     private AppSettings.ProviderKind PrevEngine => _prevProvider;
     private bool IsGemini => Engine == AppSettings.ProviderKind.Gemini;
@@ -288,6 +289,8 @@ sealed class SettingsForm : Form
 
         var f = Fields(kind);
         f.Key = _txtKey.Text.Trim();
+        if (kind == AppSettings.ProviderKind.Gemini)
+            f.Model = AppSettings.ModelId(AppSettings.GeminiModelOptions, _cmbModel.Text.Trim());
         if (kind == AppSettings.ProviderKind.Papago)
         {
             f.Second = _txtKey2.Text.Trim();
@@ -298,7 +301,7 @@ sealed class SettingsForm : Form
         if (AppSettings.IsOpenAiCompat(kind))
         {
             f.Host = _txtHost.Text.Trim();
-            f.Model = _cmbModel.Text.Trim();
+            f.Model = AppSettings.ModelId(AppSettings.ServiceOf(kind).Models, _cmbModel.Text.Trim());
         }
     }
 
@@ -423,12 +426,13 @@ sealed class SettingsForm : Form
         }
         else _txtKey2.Text = "";
 
-        // Gemini는 OpenAI 호환은 아니지만 고정 모델 목록이 있다.
+        // Gemini는 OpenAI 호환은 아니지만 고정 모델 목록이 있다. 표시 이름으로 보여주고 ID로 저장한다.
         if (kind == AppSettings.ProviderKind.Gemini)
         {
             _cmbModel.Items.Clear();
-            _cmbModel.Items.AddRange(AppSettings.Models);
-            _cmbModel.Text = string.IsNullOrWhiteSpace(f.Model) ? AppSettings.Models[0] : f.Model;
+            _cmbModel.Items.AddRange(AppSettings.GeminiModelOptions.Select(o => o.Name).ToArray());
+            _cmbModel.Text = AppSettings.ModelName(AppSettings.GeminiModelOptions,
+                string.IsNullOrWhiteSpace(f.Model) ? AppSettings.Models[0] : f.Model);
         }
         else if (AppSettings.IsOpenAiCompat(kind))
         {
@@ -439,8 +443,9 @@ sealed class SettingsForm : Form
             if (svc.Models.Length > 0)
             {
                 _cmbModel.Items.Clear();
-                _cmbModel.Items.AddRange(svc.Models);
-                _cmbModel.Text = svc.Models.Contains(f.Model) ? f.Model : svc.Models[0];
+                _cmbModel.Items.AddRange(svc.Models.Select(o => o.Name).ToArray());
+                string id = string.IsNullOrWhiteSpace(f.Model) ? svc.Models[0].Id : f.Model;
+                _cmbModel.Text = AppSettings.ModelName(svc.Models, id);
             }
             else
             {
