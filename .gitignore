@@ -1,0 +1,23 @@
+# 빌드 산출물
+bin/
+obj/
+
+# 배포 폴더 (exe는 필요하면 직접 publish)
+publish/
+
+# 사용자 데이터 — API 키가 평문/암호문으로 들어있으므로 절대 커밋 금지
+data/
+publish/data/
+*.log
+settings.json
+usage.json
+
+# 모델 파일 (수 GB)
+*.gguf
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
