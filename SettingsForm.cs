@@ -43,6 +43,32 @@ sealed class SettingsForm : Form
     // 엔진 전환 시점의 ComboBox는 Provider가 이미 새 값을 가리키고 있으므로,
     // 직전 엔진을 따로 기억해 입력창 값을 올바른 변수에 보관한다.
     private AppSettings.ProviderKind _prevProvider;
+    private int _lastProviderIndex;
+    private sealed record GroupHeader(string Title)
+    {
+        public override string ToString() => Title;
+    }
+
+    // 그룹 헤더는 회색 볼드, 엔진은 일반 텍스트로 그린다.
+    private void DrawProviderItem(object? sender, DrawItemEventArgs e)
+    {
+        e.DrawBackground();
+        if (e.Index < 0) return;
+        bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+        if (_provider.Items[e.Index] is GroupHeader h)
+        {
+            using var f = new Font(e.Font ?? SystemFonts.DefaultFont, FontStyle.Bold);
+            using var b = new SolidBrush(Color.FromArgb(0x61, 0x61, 0x61));
+            e.Graphics.DrawString(h.Title, f, b, e.Bounds.Left + 4, e.Bounds.Top + 2);
+        }
+        else
+        {
+            using var b = new SolidBrush(selected ? SystemColors.HighlightText : e.ForeColor);
+            e.Graphics.DrawString(_provider.Items[e.Index]?.ToString() ?? "",
+                e.Font ?? SystemFonts.DefaultFont, b, e.Bounds.Left + 12, e.Bounds.Top + 2);
+        }
+        e.DrawFocusRectangle();
+    }
     private string _builtinPath;
     private int _builtinCtx;
     private bool _downloading;
@@ -157,10 +183,19 @@ sealed class SettingsForm : Form
         {
             Location = new Point(12, 32), Width = 174,
             DropDownStyle = ComboBoxStyle.DropDownList,
+            DrawMode = DrawMode.OwnerDrawFixed,
         };
-        _provider.Items.AddRange(AppSettings.Providers);
-        _provider.SelectedItem = AppSettings.Providers.Contains(settings.Provider)
+        foreach (var (header, kinds) in AppSettings.ProviderGroups)
+        {
+            _provider.Items.Add(new GroupHeader(header));
+            foreach (var k in kinds)
+                _provider.Items.Add(AppSettings.DisplayName(k));
+        }
+        _provider.DrawItem += DrawProviderItem;
+        string initialProvider = AppSettings.Providers.Contains(settings.Provider)
             ? settings.Provider : AppSettings.DisplayName(AppSettings.ParseProvider(settings.Provider));
+        _provider.SelectedItem = initialProvider;
+        _lastProviderIndex = _provider.SelectedIndex;
         _provider.SelectedIndexChanged += (_, _) => SwitchProvider();
 
         _lblLang = new Label { Text = "번역 대상 언어:", Location = new Point(196, 12), AutoSize = true };
@@ -301,10 +336,20 @@ sealed class SettingsForm : Form
     private bool IsLM => Engine == AppSettings.ProviderKind.LmStudio;
     private bool IsBuiltin => Engine == AppSettings.ProviderKind.Builtin;
 
-    // 엔진 전환: 입력 중이던 값을 메모리에 보관, 선택된 엔진의 값을 표시
+    // 엔진 전환: 입력 중이던 값을 메모리에 보관, 선택된 엔진의 값을 표시.
+    // 그룹 헤더를 골랐으면 선택을 되돌리고 아무것도 하지 않는다.
+    private bool _suppressProviderEvent;
     private void SwitchProvider()
     {
-        // ComboBox는 드롭다운 선택 즉시 SelectedIndexChanged가 발생해
+        if (_suppressProviderEvent) return;
+        if (_provider.SelectedItem is GroupHeader)
+        {
+            _suppressProviderEvent = true;
+            _provider.SelectedIndex = _lastProviderIndex;
+            _suppressProviderEvent = false;
+            return;
+        }
+        _lastProviderIndex = _provider.SelectedIndex;
         // Provider가 이미 새 엔진으로 바뀐 상태다. 따라서 이전 엔진의 값을
         // 보관하려면 Provider를 기준으로 판단하는 StashCurrentFields를
         // 먼저 돌릴 수 없다. 전환 직전 엔진 기준으로 임시 저장한 뒤 불러온다.

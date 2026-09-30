@@ -99,9 +99,17 @@ sealed class AppSettings
 
     public static readonly string[] Providers =
     [
-        "로컬 (Hy-MT2)", "LM Studio",
-        "DeepL", "DeepSeek", "Gemini", "Google 번역",
-        "Groq", "Microsoft 번역", "OpenAI", "Papago",
+        "DeepSeek", "Gemini", "Groq", "LM Studio", "OpenAI", "로컬 (Hy-MT2)",
+        "DeepL", "Google 번역", "Microsoft 번역", "Papago",
+    ];
+
+    /// <summary>드롭다운 그룹 표시 순서. (AI 모델 / 번역 전용)</summary>
+    public static readonly (string Header, ProviderKind[] Kinds)[] ProviderGroups =
+    [
+        ("AI 모델", [ProviderKind.DeepSeek, ProviderKind.Gemini, ProviderKind.Groq,
+            ProviderKind.LmStudio, ProviderKind.OpenAi, ProviderKind.Builtin]),
+        ("번역 전용", [ProviderKind.DeepL, ProviderKind.GoogleTranslate,
+            ProviderKind.MsTranslator, ProviderKind.Papago]),
     ];
 
     /// <summary>
