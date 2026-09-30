@@ -10,6 +10,9 @@ sealed class SettingsForm : Form
 
     private readonly Label _lblKey;
     private readonly TextBox _txtKey;
+    // Papago만 사용하는 두 번째 입력창 (Client Secret)
+    private readonly Label _lblKey2;
+    private readonly TextBox _txtKey2;
     private readonly Label _lblHost;
     private readonly TextBox _txtHost;
     private readonly Label _lblLang;
@@ -34,33 +37,102 @@ sealed class SettingsForm : Form
     private readonly AppSettings _settings;
     private readonly uint _origMods;
     private readonly string _origKey;
-    private string _geminiKey;
-    private string _deeplKey;
-    private string _lmKey;
-    private string _lmHost;
-    private string _lmModel;
-    private string _geminiModel;
+    // 엔진 전환 시점의 ComboBox는 Provider가 이미 새 값을 가리키고 있으므로,
+    // 직전 엔진을 따로 기억해 입력창 값을 올바른 변수에 보관한다.
+    private AppSettings.ProviderKind _prevProvider;
     private string _builtinPath;
     private int _builtinCtx;
     private bool _downloading;
+    // 엔진별 메모리 보관값
+    private readonly Dictionary<AppSettings.ProviderKind, EngineFields> _fields = new();
+
     private readonly GeminiClient _geminiProbe = new();
     private readonly DeepLClient _deeplProbe = new();
     private readonly LmStudioClient _lmProbe = new();
     private readonly BuiltinClient _builtinProbe = new();
+    private readonly OpenAiCompatClient _deepseekProbe = new("DeepSeek", supportsThinkingToggle: true);
+    private readonly OpenAiCompatClient _groqProbe = new("Groq");
+    private readonly OpenAiCompatClient _openaiProbe = new("OpenAI");
+    private readonly GoogleTranslateClient _googleProbe = new();
+    private readonly PapagoClient _papagoProbe = new();
+    private readonly MsTranslatorClient _msProbe = new();
+
+    /// <summary>엔진 하나에 필요한 설정 값을 묶어 보관한다.</summary>
+    private sealed class EngineFields
+    {
+        public string Key = "";
+        public string Second = "";   // Papago Client Secret 등 두 번째 값
+        public string Host = "";
+        public string Model = "";
+    }
+
+    private EngineFields Fields(AppSettings.ProviderKind kind)
+    {
+        if (!_fields.TryGetValue(kind, out var f))
+        {
+            f = new EngineFields();
+            _fields[kind] = f;
+        }
+        return f;
+    }
+
+    // settings.json → 메모리. 새 엔진을 추가할 때 여기만 갱신하면 된다.
+    private void LoadFieldsFromSettings(AppSettings s)
+    {
+        Fields(AppSettings.ProviderKind.Gemini).Key = s.ApiKey;
+        Fields(AppSettings.ProviderKind.Gemini).Model = s.Model;
+        Fields(AppSettings.ProviderKind.DeepL).Key = s.DeepLApiKey;
+        Fields(AppSettings.ProviderKind.LmStudio).Key = s.LmStudioKey;
+        Fields(AppSettings.ProviderKind.LmStudio).Host = s.LmStudioHost;
+        Fields(AppSettings.ProviderKind.LmStudio).Model = s.LmStudioModel;
+        Fields(AppSettings.ProviderKind.DeepSeek).Key = s.DeepSeekKey;
+        Fields(AppSettings.ProviderKind.DeepSeek).Host = s.DeepSeekHost;
+        Fields(AppSettings.ProviderKind.DeepSeek).Model = s.DeepSeekModel;
+        Fields(AppSettings.ProviderKind.Groq).Key = s.GroqKey;
+        Fields(AppSettings.ProviderKind.Groq).Host = s.GroqHost;
+        Fields(AppSettings.ProviderKind.Groq).Model = s.GroqModel;
+        Fields(AppSettings.ProviderKind.OpenAi).Key = s.OpenAiKey;
+        Fields(AppSettings.ProviderKind.OpenAi).Host = s.OpenAiHost;
+        Fields(AppSettings.ProviderKind.OpenAi).Model = s.OpenAiModel;
+        Fields(AppSettings.ProviderKind.GoogleTranslate).Key = s.GoogleKey;
+        Fields(AppSettings.ProviderKind.Papago).Key = s.PapagoClientId;
+        Fields(AppSettings.ProviderKind.Papago).Second = s.PapagoClientSecret;
+        Fields(AppSettings.ProviderKind.MsTranslator).Key = s.MsTranslatorKey;
+    }
+
+    // 메모리 → settings.json
+    private void SaveFieldsToSettings(AppSettings s)
+    {
+        s.ApiKey = Fields(AppSettings.ProviderKind.Gemini).Key;
+        s.Model = Fields(AppSettings.ProviderKind.Gemini).Model;
+        s.DeepLApiKey = Fields(AppSettings.ProviderKind.DeepL).Key;
+        s.LmStudioKey = Fields(AppSettings.ProviderKind.LmStudio).Key;
+        s.LmStudioHost = Fields(AppSettings.ProviderKind.LmStudio).Host;
+        s.LmStudioModel = Fields(AppSettings.ProviderKind.LmStudio).Model;
+        s.DeepSeekKey = Fields(AppSettings.ProviderKind.DeepSeek).Key;
+        s.DeepSeekHost = Fields(AppSettings.ProviderKind.DeepSeek).Host;
+        s.DeepSeekModel = Fields(AppSettings.ProviderKind.DeepSeek).Model;
+        s.GroqKey = Fields(AppSettings.ProviderKind.Groq).Key;
+        s.GroqHost = Fields(AppSettings.ProviderKind.Groq).Host;
+        s.GroqModel = Fields(AppSettings.ProviderKind.Groq).Model;
+        s.OpenAiKey = Fields(AppSettings.ProviderKind.OpenAi).Key;
+        s.OpenAiHost = Fields(AppSettings.ProviderKind.OpenAi).Host;
+        s.OpenAiModel = Fields(AppSettings.ProviderKind.OpenAi).Model;
+        s.GoogleKey = Fields(AppSettings.ProviderKind.GoogleTranslate).Key;
+        s.PapagoClientId = Fields(AppSettings.ProviderKind.Papago).Key;
+        s.PapagoClientSecret = Fields(AppSettings.ProviderKind.Papago).Second;
+        s.MsTranslatorKey = Fields(AppSettings.ProviderKind.MsTranslator).Key;
+    }
 
     public SettingsForm(AppSettings settings)
     {
         _settings = settings;
         _origMods = settings.HotkeyMods;
         _origKey = settings.HotkeyKey;
-        _geminiKey = settings.ApiKey;
-        _deeplKey = settings.DeepLApiKey;
-        _lmKey = settings.LmStudioKey;
-        _lmHost = settings.LmStudioHost;
-        _lmModel = settings.LmStudioModel;
-        _geminiModel = settings.Model;
+        _prevProvider = settings.Engine;
         _builtinPath = settings.BuiltinModelPath;
         _builtinCtx = settings.BuiltinContextSize >= 1024 ? settings.BuiltinContextSize : 4096;
+        LoadFieldsFromSettings(settings);
 
         Text = "TrayTranslator 설정";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -92,6 +164,9 @@ sealed class SettingsForm : Form
 
         _lblKey = new Label { Location = new Point(12, 60), AutoSize = true };
         _txtKey = new TextBox { Location = new Point(12, 80), Width = 356, UseSystemPasswordChar = true };
+
+        _lblKey2 = new Label { Location = new Point(12, 108), AutoSize = true };
+        _txtKey2 = new TextBox { Location = new Point(12, 128), Width = 356, UseSystemPasswordChar = true };
 
         _lblHost = new Label { Text = "서버 주소:", AutoSize = true };
         _txtHost = new TextBox { Width = 356 };
@@ -146,7 +221,7 @@ sealed class SettingsForm : Form
         _btnCancel = new Button { Text = "취소", Width = 75, DialogResult = DialogResult.Cancel };
         _btnSave.Click += OnSave;
 
-        Controls.AddRange([lblProvider, _provider, _lblKey, _txtKey, _lblHost, _txtHost,
+        Controls.AddRange([lblProvider, _provider, _lblKey, _txtKey, _lblKey2, _txtKey2, _lblHost, _txtHost,
             _lblFile, _btnBrowse, _btnDownload, _lblCtx, _cmbCtx,
             _lblLang, _lang, _lblHotkey, _chkCtrl, _chkAlt, _chkShift, _chkWin, _cmbKey,
             _lblModel, _cmbModel, _btnTest, _lblTest, _lblHint, _lblUsage, _btnSave, _btnCancel]);
@@ -159,49 +234,108 @@ sealed class SettingsForm : Form
         if (IsLM) _ = RefreshLmModelsAsync();
     }
 
-    private string Provider => _provider.SelectedItem?.ToString() ?? "Gemini";
-    private bool IsDeepL => Provider == "DeepL";
-    private bool IsLM => Provider == "LM Studio";
-    private bool IsBuiltin => Provider == "로컬 (Hy-MT2)";
+    private string Provider => _provider.SelectedItem?.ToString() ?? AppSettings.Providers[0];
+    private AppSettings.ProviderKind Engine => AppSettings.ParseProvider(Provider);
+    private AppSettings.ProviderKind PrevEngine => _prevProvider;
+    private bool IsGemini => Engine == AppSettings.ProviderKind.Gemini;
+    private bool IsDeepL => Engine == AppSettings.ProviderKind.DeepL;
+    private bool IsLM => Engine == AppSettings.ProviderKind.LmStudio;
+    private bool IsBuiltin => Engine == AppSettings.ProviderKind.Builtin;
 
     // 엔진 전환: 입력 중이던 값을 메모리에 보관, 선택된 엔진의 값을 표시
     private void SwitchProvider()
     {
-        StashCurrentFields();
+        // ComboBox는 드롭다운 선택 즉시 SelectedIndexChanged가 발생해
+        // Provider가 이미 새 엔진으로 바뀐 상태다. 따라서 이전 엔진의 값을
+        // 보관하려면 Provider를 기준으로 판단하는 StashCurrentFields를
+        // 먼저 돌릴 수 없다. 전환 직전 엔진 기준으로 임시 저장한 뒤 불러온다.
+        StashPreviousProviderFields();
         LoadProviderFields();
         LayoutForProvider();
         if (IsLM) _ = RefreshLmModelsAsync();
     }
 
+    // ComboBox 이벤트 특성상 Provider가 이미 새 값을 가리키고 있으므로,
+    // 직전 엔진(PrevEngine)을 기준으로 입력창을 해당 엔진의 메모리 슬롯에 보관한다.
+    private void StashPreviousProviderFields()
+    {
+        StashFields(PrevEngine);
+        _prevProvider = Engine;
+    }
+
+    // 화면(입력창) → 해당 엔진의 메모리 슬롯.
+    private void StashFields(AppSettings.ProviderKind kind)
+    {
+        if (kind == AppSettings.ProviderKind.Builtin)
+        {
+            _builtinCtx = ParseCtx(_cmbCtx.Text);
+            return;
+        }
+
+        var f = Fields(kind);
+        f.Key = _txtKey.Text.Trim();
+        if (kind == AppSettings.ProviderKind.Papago)
+            f.Second = _txtKey2.Text.Trim();
+        if (AppSettings.IsOpenAiCompat(kind))
+        {
+            f.Host = _txtHost.Text.Trim();
+            f.Model = _cmbModel.Text.Trim();
+        }
+    }
+
     private bool _refreshingModels;
 
-    // LM Studio: 서버의 로드된 모델 목록을 가져와 모델 드롭다운에 채움 (브랜드별 목록)
+    // LM Studio / Groq / OpenAI: 서버의 모델 목록을 가져와 드롭다운에 채운다.
+    // 키가 없거나 조회가 실패하면 목록을 비워 수동 입력만 허용한다.
     private async Task RefreshLmModelsAsync()
     {
         if (_refreshingModels) return;
         _refreshingModels = true;
         try
         {
-            string keep = _cmbModel.Text.Trim();
-            var ids = await _lmProbe.ListModelsAsync(
-                string.IsNullOrWhiteSpace(_txtHost.Text) ? "http://localhost:1234" : _txtHost.Text.Trim());
+            var kind = Engine;
+            if (!AppSettings.IsOpenAiCompat(kind)) return;
+
+            // DeepSeek처럼 고정 목록이 있는 서비스는 목록 조회가 필요 없다.
+            if (AppSettings.ServiceOf(kind).Models.Length > 0) return;
+
+            string host = _txtHost.Text.Trim();
+            if (string.IsNullOrWhiteSpace(host))
+                host = AppSettings.ServiceOf(kind).BaseUrl;
+            string apiKey = _txtKey.Text.Trim();
+
+            List<string> ids;
+            if (kind == AppSettings.ProviderKind.LmStudio)
+                ids = await _lmProbe.ListModelsAsync(host);
+            else
+                ids = await ProbeOf(kind).ListModelsAsync(host, apiKey);
+
             if (ids.Count > 0)
             {
+                string keep = _cmbModel.Text.Trim();
                 _cmbModel.Items.Clear();
                 _cmbModel.Items.AddRange([.. ids]);
                 _cmbModel.Text = ids.Contains(keep) ? keep : ids[0];
+            }
+            else if (_cmbModel.Items.Count == 0)
+            {
+                _cmbModel.Text = "";
             }
         }
         finally { _refreshingModels = false; }
     }
 
-    private void StashCurrentFields()
+    private OpenAiCompatClient ProbeOf(AppSettings.ProviderKind kind) => kind switch
     {
-        if (IsDeepL) _deeplKey = _txtKey.Text.Trim();
-        else if (IsLM) { _lmKey = _txtKey.Text.Trim(); _lmHost = _txtHost.Text.Trim(); _lmModel = _cmbModel.Text.Trim(); }
-        else if (IsBuiltin) { _builtinCtx = ParseCtx(_cmbCtx.Text); }
-        else { _geminiKey = _txtKey.Text.Trim(); _geminiModel = _cmbModel.Text.Trim(); }
-    }
+        AppSettings.ProviderKind.DeepSeek => _deepseekProbe,
+        AppSettings.ProviderKind.Groq => _groqProbe,
+        AppSettings.ProviderKind.OpenAi => _openaiProbe,
+        AppSettings.ProviderKind.LmStudio => throw new InvalidOperationException("LM Studio는 별도 클라이언트 사용"),
+        _ => throw new InvalidOperationException($"OpenAI 호환 엔진 아님: {kind}"),
+    };
+
+    // 저장/테스트 시점에는 ComboBox의 선택이 이미 확정돼 있으므로 현재 엔진(Engine)을 기준으로 보관한다.
+    private void StashCurrentFields() => StashFields(Engine);
 
     private static int ParseCtx(string s)
     {
@@ -209,41 +343,94 @@ sealed class SettingsForm : Form
         return 4096;
     }
 
+    // 메모리 → 화면. Papago만 두 번째 입력창을 쓰고, OpenAI 호환만 주소/모델을 쓴다.
     private void LoadProviderFields()
     {
-        if (IsBuiltin)
+        var kind = Engine;
+
+        if (kind == AppSettings.ProviderKind.Builtin)
         {
+            // 로컬 엔진은 API 키가 필요 없다. 이전 엔진의 키가 입력창에 남으면
+            // 다른 분기에서 잘못 읽혀 엉뚱한 키로 요청할 수 있어 비운다.
+            _txtKey.Text = "";
+            _txtKey2.Text = "";
+            _txtHost.Text = "";
             _cmbCtx.Text = _builtinCtx.ToString();
             RefreshFileStatus();
             return;
         }
-        if (IsDeepL) { _lblKey.Text = "DeepL API 키 (Free):"; _txtKey.Text = _deeplKey; }
-        else if (IsLM)
+
+        var f = Fields(kind);
+        string name = AppSettings.DisplayName(kind);
+
+        // 라벨 문구
+        if (AppSettings.IsOpenAiCompat(kind))
         {
-            _lblKey.Text = "LM Studio API 키 (선택, 보통 불필요):";
-            _txtKey.Text = _lmKey;
-            _txtHost.Text = _lmHost;
-            _lblModel.Text = "LM Studio 모델 ID (로드된 모델과 일치):";
-            _cmbModel.Text = _lmModel;
+            _lblKey.Text = kind == AppSettings.ProviderKind.LmStudio
+                ? "LM Studio API 키 (선택, 보통 불필요):"
+                : $"{name} API 키:";
+            _lblHost.Text = "서버 주소:";
+            _lblModel.Text = $"{name} 모델:";
+        }
+        else if (kind == AppSettings.ProviderKind.Papago)
+        {
+            _lblKey.Text = "Papago Client ID:";
+            _lblKey2.Text = "Papago Client Secret:";
+        }
+        else if (kind == AppSettings.ProviderKind.DeepL)
+        {
+            _lblKey.Text = "DeepL API 키 (Free):";
         }
         else
         {
-            _lblKey.Text = "Gemini API 키:";
-            _txtKey.Text = _geminiKey;
-            _lblModel.Text = "Gemini 모델 (404 시 자동 폴백):";
+            _lblKey.Text = $"{name} API 키:";
+        }
+
+        // 값 채우기
+        _txtKey.Text = f.Key;
+        if (kind == AppSettings.ProviderKind.Papago) _txtKey2.Text = f.Second;
+        else _txtKey2.Text = "";
+
+        // Gemini는 OpenAI 호환은 아니지만 고정 모델 목록이 있다.
+        if (kind == AppSettings.ProviderKind.Gemini)
+        {
             _cmbModel.Items.Clear();
             _cmbModel.Items.AddRange(AppSettings.Models);
-            _cmbModel.Text = string.IsNullOrWhiteSpace(_geminiModel) ? AppSettings.Models[0] : _geminiModel;
+            _cmbModel.Text = string.IsNullOrWhiteSpace(f.Model) ? AppSettings.Models[0] : f.Model;
+        }
+        else if (AppSettings.IsOpenAiCompat(kind))
+        {
+            var svc = AppSettings.ServiceOf(kind);
+            _txtHost.Text = string.IsNullOrWhiteSpace(f.Host) ? svc.BaseUrl : f.Host;
+
+            // 고정 목록이 있는 서비스(DeepSeek)는 그 목록을, 없으면 서버 조회를 쓴다.
+            if (svc.Models.Length > 0)
+            {
+                _cmbModel.Items.Clear();
+                _cmbModel.Items.AddRange(svc.Models);
+                _cmbModel.Text = svc.Models.Contains(f.Model) ? f.Model : svc.Models[0];
+            }
+            else
+            {
+                // LM Studio / Groq / OpenAI: 서버에서 목록을 가져온다(키가 있을 때만).
+                _cmbModel.Items.Clear();
+                _cmbModel.Text = f.Model;
+            }
         }
     }
 
     private void LayoutForProvider()
     {
-        bool lm = IsLM;
-        bool builtin = IsBuiltin;
-        bool showModel = !IsDeepL && !builtin;
+        var kind = Engine;
+        bool builtin = kind == AppSettings.ProviderKind.Builtin;
+        bool compat = AppSettings.IsOpenAiCompat(kind);
+        bool showModel = AppSettings.HasModel(kind);
+        bool papago = kind == AppSettings.ProviderKind.Papago;
+
+        // Papago만 두 번째 입력창(Client Secret)을 보여준다.
+        _lblKey2.Visible = _txtKey2.Visible = papago;
         _lblKey.Visible = _txtKey.Visible = !builtin;
-        _lblHost.Visible = _txtHost.Visible = lm && !builtin;
+        _lblHost.Visible = _txtHost.Visible = compat && !builtin;
         _lblModel.Visible = showModel;
         _cmbModel.Visible = showModel;
         _lblFile.Visible = builtin;
@@ -280,7 +467,21 @@ sealed class SettingsForm : Form
             _lblCtx.Location = new Point(12, y); y += 20;
             _cmbCtx.Location = new Point(12, y); y += 28;
         }
-        else if (lm)
+        else
+        {
+            if (papago)
+            {
+                _lblKey.Location = new Point(12, y); y += 20;
+                _txtKey.Location = new Point(12, y); y += 28;
+                _lblKey2.Location = new Point(12, y); y += 20;
+                _txtKey2.Location = new Point(12, y); y += 28;
+            }
+            if (compat)
+            {
+                _lblHost.Location = new Point(12, y); y += 20;
+                _txtHost.Location = new Point(12, y); y += 28;
+            }
+        }
         {
             _lblHost.Location = new Point(12, y); y += 20;
             _txtHost.Location = new Point(12, y); y += 28;
@@ -372,7 +573,12 @@ sealed class SettingsForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _geminiProbe.Dispose(); _deeplProbe.Dispose(); _lmProbe.Dispose(); _builtinProbe.Dispose(); }
+        if (disposing)
+        {
+            _geminiProbe.Dispose(); _deeplProbe.Dispose(); _lmProbe.Dispose(); _builtinProbe.Dispose();
+            _deepseekProbe.Dispose(); _groqProbe.Dispose(); _openaiProbe.Dispose();
+            _googleProbe.Dispose(); _papagoProbe.Dispose(); _msProbe.Dispose();
+        }
         base.Dispose(disposing);
     }
 
@@ -389,12 +595,20 @@ sealed class SettingsForm : Form
         _lblTest.Text = "테스트 중...";
         try
         {
-            (bool ok, string msg) = Provider switch
+            var kind = Engine;
+            var f = Fields(kind);
+            (bool ok, string msg) = kind switch
             {
-                "DeepL" => await _deeplProbe.TestAsync(_deeplKey, target),
-                "LM Studio" => await _lmProbe.TestAsync(_lmHost, _lmModel),
-                "로컬 (Hy-MT2)" => await _builtinProbe.TestAsync(_builtinPath, _builtinCtx),
-                _ => await _geminiProbe.TestAsync(_geminiKey, _cmbModel.Text.Trim(), target),
+                AppSettings.ProviderKind.Gemini => await _geminiProbe.TestAsync(f.Key, f.Model, target),
+                AppSettings.ProviderKind.DeepL => await _deeplProbe.TestAsync(f.Key, target),
+                AppSettings.ProviderKind.Builtin => await _builtinProbe.TestAsync(_builtinPath, _builtinCtx),
+                AppSettings.ProviderKind.DeepSeek => await _deepseekProbe.TestAsync(f.Host, f.Model, f.Key, target),
+                AppSettings.ProviderKind.Groq => await _groqProbe.TestAsync(f.Host, f.Model, f.Key, target),
+                AppSettings.ProviderKind.OpenAi => await _openaiProbe.TestAsync(f.Host, f.Model, f.Key, target),
+                AppSettings.ProviderKind.GoogleTranslate => await _googleProbe.TestAsync(f.Key, target),
+                AppSettings.ProviderKind.Papago => await _papagoProbe.TestAsync(f.Key, f.Second, target),
+                AppSettings.ProviderKind.MsTranslator => await _msProbe.TestAsync(f.Key, target),
+                _ => throw new InvalidOperationException($"새 엔진 추가 시 연결 테스트 분기 갱신 필요: {kind}"),
             };
             _lblTest.ForeColor = ok ? Color.Green : Color.Red;
             _lblTest.Text = msg;
@@ -433,11 +647,28 @@ sealed class SettingsForm : Form
         }
 
         StashCurrentFields();
-        _settings.ApiKey = _geminiKey;
-        _settings.DeepLApiKey = _deeplKey;
-        _settings.LmStudioKey = _lmKey;
-        _settings.LmStudioHost = string.IsNullOrWhiteSpace(_lmHost) ? "http://localhost:1234" : _lmHost;
-        _settings.LmStudioModel = _lmModel;
+        SaveFieldsToSettings(_settings);
+
+        // 비어 있으면 기본값으로 채운다 (다음 실행 때 주소가 비어 보이지 않도록)
+        var lmF = Fields(AppSettings.ProviderKind.LmStudio);
+        if (string.IsNullOrWhiteSpace(lmF.Host)) lmF.Host = "http://localhost:1234";
+        _settings.LmStudioHost = lmF.Host;
+        var dsF = Fields(AppSettings.ProviderKind.DeepSeek);
+        if (string.IsNullOrWhiteSpace(dsF.Host)) dsF.Host = "https://api.deepseek.com";
+        if (string.IsNullOrWhiteSpace(dsF.Model)) dsF.Model = "deepseek-flash";
+        _settings.DeepSeekHost = dsF.Host;
+        _settings.DeepSeekModel = dsF.Model;
+        var gqF = Fields(AppSettings.ProviderKind.Groq);
+        if (string.IsNullOrWhiteSpace(gqF.Host)) gqF.Host = "https://api.groq.com/openai";
+        _settings.GroqHost = gqF.Host;
+        var oaF = Fields(AppSettings.ProviderKind.OpenAi);
+        if (string.IsNullOrWhiteSpace(oaF.Host)) oaF.Host = "https://api.openai.com/v1";
+        _settings.OpenAiHost = oaF.Host;
+
+        var gemF = Fields(AppSettings.ProviderKind.Gemini);
+        if (string.IsNullOrWhiteSpace(gemF.Model)) gemF.Model = AppSettings.Models[0];
+        _settings.Model = gemF.Model;
+
         _settings.BuiltinModelPath = _builtinPath;
         _settings.BuiltinContextSize = _builtinCtx;
         _settings.Provider = Provider;
@@ -447,11 +678,6 @@ sealed class SettingsForm : Form
         _settings.HotkeyShift = _chkShift.Checked;
         _settings.HotkeyWin = _chkWin.Checked;
         _settings.HotkeyKey = _cmbKey.SelectedItem?.ToString() ?? "T";
-        if (Provider == "Gemini")
-        {
-            _settings.Model = _cmbModel.Text.Trim();
-            if (string.IsNullOrEmpty(_settings.Model)) _settings.Model = AppSettings.Models[0];
-        }
         _settings.Save();
     }
 }

@@ -11,6 +11,12 @@ sealed class TrayAppContext : ApplicationContext
     private readonly DeepLClient _deepl = new();
     private readonly LmStudioClient _lmstudio = new();
     private readonly BuiltinClient _builtin = new();
+    private readonly OpenAiCompatClient _deepseek = new("DeepSeek", supportsThinkingToggle: true);
+    private readonly OpenAiCompatClient _groq = new("Groq");
+    private readonly OpenAiCompatClient _openai = new("OpenAI");
+    private readonly GoogleTranslateClient _google = new();
+    private readonly PapagoClient _papago = new();
+    private readonly MsTranslatorClient _ms = new();
     private PopupForm? _popup;
     private bool _busy;
     private bool _disposed;
@@ -108,12 +114,20 @@ sealed class TrayAppContext : ApplicationContext
             return;
         }
 
-        int chunkSize = _settings.Provider switch
+        int chunkSize = _settings.Engine switch
         {
-            "DeepL" => 30000,
-            "Gemini" => 8000,
-            "LM Studio" => 2000,
-            _ => Math.Clamp(_settings.BuiltinContextSize / 3, 500, 8000), // 로컬: ctx 비례
+            AppSettings.ProviderKind.DeepL => 30000,
+            AppSettings.ProviderKind.Gemini => 8000,
+            // 번역 전용 API는 문당 과금이 작아 큰 조각을 보낸다
+            AppSettings.ProviderKind.GoogleTranslate
+                or AppSettings.ProviderKind.Papago
+                or AppSettings.ProviderKind.MsTranslator => 20000,
+            AppSettings.ProviderKind.LmStudio
+                or AppSettings.ProviderKind.DeepSeek
+                or AppSettings.ProviderKind.Groq
+                or AppSettings.ProviderKind.OpenAi => 4000,
+            AppSettings.ProviderKind.Builtin => Math.Clamp(_settings.BuiltinContextSize / 3, 500, 8000), // 로컬: ctx 비례
+            _ => throw new InvalidOperationException($"새 엔진 추가 시 조각 크기 갱신 필요: {_settings.Engine}"),
         };
         var chunks = ChunkText(src, chunkSize);
         string outPath = Path.Combine(
@@ -127,17 +141,8 @@ sealed class TrayAppContext : ApplicationContext
             for (int i = 0; i < chunks.Count; i++)
             {
                 ShowPopup($"파일 번역 중... {i + 1}/{chunks.Count}", Timeout.Infinite);
-                (bool ok, string result) = _settings.Provider switch
-                {
-                    "DeepL" => await _deepl.TranslateAsync(chunks[i], _settings.TargetLang, _settings.DeepLApiKey),
-                    "LM Studio" => await _lmstudio.TranslateAsync(chunks[i], _settings.TargetLang,
-                        _settings.LmStudioHost, _settings.LmStudioModel, _settings.LmStudioKey),
-                    "로컬 (Hy-MT2)" => await _builtin.TranslateAsync(chunks[i], _settings.TargetLang,
-                        _settings.BuiltinModelPath, _settings.BuiltinContextSize, null),
-                    _ => await _gemini.TranslateAsync(
-                        chunks[i], _settings.TargetLang, _settings.ApiKey, _settings.Model,
-                        msg => { ShowPopup($"파일 번역 중... {i + 1}/{chunks.Count}\n{msg}", Timeout.Infinite); return Task.CompletedTask; }),
-                };
+                (bool ok, string result) = await TranslateAsync(chunks[i],
+                    msg => { ShowPopup($"파일 번역 중... {i + 1}/{chunks.Count}\n{msg}", Timeout.Infinite); return Task.CompletedTask; });
                 if (!ok)
                 {
                     ShowPopup($"파일 번역 중단 ({i + 1}/{chunks.Count}):\n{result}", 10000);
@@ -191,14 +196,7 @@ sealed class TrayAppContext : ApplicationContext
     private async void OnHotkey()
     {
         if (_busy) return;
-        string activeKey = _settings.Provider switch
-        {
-            "DeepL" => _settings.DeepLApiKey,
-            "LM Studio" => _settings.LmStudioKey,
-            _ => _settings.ApiKey,
-        };
-        bool needKey = _settings.Provider is "Gemini" or "DeepL";
-        if (needKey && string.IsNullOrWhiteSpace(activeKey))
+        if (AppSettings.NeedsKey(_settings.Engine) && string.IsNullOrWhiteSpace(ActiveKey))
         {
             ShowPopup($"{_settings.Provider} API 키가 없습니다. 트레이 우클릭 → 설정에서 입력하세요.");
             return;
@@ -235,7 +233,7 @@ sealed class TrayAppContext : ApplicationContext
                 }
                 text = clip;
             }
-            Logger.Log($"핫키: 방식={(viaClipboard ? "클립보드" : "UIA")} 내용={Logger.Preview(Logger.SanitizeAll(text ?? "", _settings.ApiKey, _settings.DeepLApiKey, _settings.LmStudioKey))}");
+            Logger.Log($"핫키: 방식={(viaClipboard ? "클립보드" : "UIA")} 내용={Logger.Preview(Mask(text ?? ""))}");
             if (string.IsNullOrWhiteSpace(text))
             {
                 ShowPopup($"텍스트를 드래그한 뒤 {_settings.HotkeyDisplay}를 누르세요.");
@@ -258,6 +256,62 @@ sealed class TrayAppContext : ApplicationContext
         finally { _busy = false; }
     }
 
+    // 모든 번역 경로(핫키 실시간 / 파일 번역)가 공유하는 단일 디스패치.
+    // 엔진을 추가할 때 여기만 수정하면 된다.
+    private Task<(bool Ok, string Text)> TranslateAsync(
+        string text, Func<string, Task>? onProgress = null) => _settings.Engine switch
+    {
+        AppSettings.ProviderKind.Gemini => _gemini.TranslateAsync(
+            text, _settings.TargetLang, _settings.ApiKey, _settings.Model, onProgress),
+        AppSettings.ProviderKind.DeepL => _deepl.TranslateAsync(
+            text, _settings.TargetLang, _settings.DeepLApiKey),
+        AppSettings.ProviderKind.LmStudio => _lmstudio.TranslateAsync(
+            text, _settings.TargetLang, _settings.LmStudioHost,
+            _settings.LmStudioModel, _settings.LmStudioKey),
+        AppSettings.ProviderKind.Builtin => _builtin.TranslateAsync(
+            text, _settings.TargetLang, _settings.BuiltinModelPath,
+            _settings.BuiltinContextSize, onProgress),
+        AppSettings.ProviderKind.DeepSeek => _deepseek.TranslateAsync(
+            text, _settings.TargetLang, _settings.DeepSeekHost,
+            _settings.DeepSeekModel, _settings.DeepSeekKey),
+        AppSettings.ProviderKind.Groq => _groq.TranslateAsync(
+            text, _settings.TargetLang, _settings.GroqHost,
+            _settings.GroqModel, _settings.GroqKey),
+        AppSettings.ProviderKind.OpenAi => _openai.TranslateAsync(
+            text, _settings.TargetLang, _settings.OpenAiHost,
+            _settings.OpenAiModel, _settings.OpenAiKey),
+        AppSettings.ProviderKind.GoogleTranslate => _google.TranslateAsync(
+            text, _settings.TargetLang, _settings.GoogleKey),
+        AppSettings.ProviderKind.Papago => _papago.TranslateAsync(
+            text, _settings.TargetLang, _settings.PapagoClientId, _settings.PapagoClientSecret),
+        AppSettings.ProviderKind.MsTranslator => _ms.TranslateAsync(
+            text, _settings.TargetLang, _settings.MsTranslatorKey),
+        _ => throw new InvalidOperationException($"새 엔진 추가 시 번역 분기 갱신 필요: {_settings.Engine}"),
+    };
+
+    // 현재 엔진의 API 키. 로그 마스킹과 "키 없음" 안내에 함께 쓴다.
+    private string ActiveKey => _settings.Engine switch
+    {
+        AppSettings.ProviderKind.Gemini => _settings.ApiKey,
+        AppSettings.ProviderKind.DeepL => _settings.DeepLApiKey,
+        AppSettings.ProviderKind.LmStudio => _settings.LmStudioKey,
+        AppSettings.ProviderKind.DeepSeek => _settings.DeepSeekKey,
+        AppSettings.ProviderKind.Groq => _settings.GroqKey,
+        AppSettings.ProviderKind.OpenAi => _settings.OpenAiKey,
+        AppSettings.ProviderKind.GoogleTranslate => _settings.GoogleKey,
+        AppSettings.ProviderKind.Papago => _settings.PapagoClientSecret,
+        AppSettings.ProviderKind.MsTranslator => _settings.MsTranslatorKey,
+        AppSettings.ProviderKind.Builtin => "",
+        _ => throw new InvalidOperationException($"새 엔진 추가 시 키 조회 갱신 필요: {_settings.Engine}"),
+    };
+
+    // 로그에 키가 새지 않도록 현재 엔진 키 + 다른 엔진 키를 모두 마스킹한다.
+    private string Mask(string s) => Logger.SanitizeAll(s,
+        _settings.ApiKey, _settings.DeepLApiKey, _settings.LmStudioKey,
+        _settings.DeepSeekKey, _settings.GroqKey, _settings.OpenAiKey,
+        _settings.GoogleKey, _settings.PapagoClientId,
+        _settings.PapagoClientSecret, _settings.MsTranslatorKey);
+
     private async Task TranslateAndShowAsync(string text)
     {
         if (_busy) return;
@@ -267,20 +321,10 @@ sealed class TrayAppContext : ApplicationContext
             if (text.Length > 2000) text = text[..2000];
             ShowPopup("번역 중...", Timeout.Infinite);
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            Logger.Log($"번역 요청: 엔진={_settings.Provider} 대상={_settings.TargetLang} 원문={Logger.Preview(Logger.SanitizeAll(text, _settings.ApiKey, _settings.DeepLApiKey, _settings.LmStudioKey))}");
-            (bool ok, string result) = _settings.Provider switch
-            {
-                "DeepL" => await _deepl.TranslateAsync(text, _settings.TargetLang, _settings.DeepLApiKey),
-                "LM Studio" => await _lmstudio.TranslateAsync(text, _settings.TargetLang,
-                    _settings.LmStudioHost, _settings.LmStudioModel, _settings.LmStudioKey),
-                "로컬 (Hy-MT2)" => await _builtin.TranslateAsync(text, _settings.TargetLang,
-                    _settings.BuiltinModelPath, _settings.BuiltinContextSize,
-                    msg => { ShowPopup(msg, Timeout.Infinite); return Task.CompletedTask; }),
-                _ => await _gemini.TranslateAsync(
-                    text, _settings.TargetLang, _settings.ApiKey, _settings.Model,
-                    msg => { ShowPopup(msg, Timeout.Infinite); return Task.CompletedTask; }),
-            };
-            Logger.Log($"번역 완료: {sw.ElapsedMilliseconds}ms 성공={ok} 결과={Logger.Preview(Logger.SanitizeAll(result, _settings.ApiKey, _settings.DeepLApiKey, _settings.LmStudioKey))}");
+            Logger.Log($"번역 요청: 엔진={_settings.Provider} 대상={_settings.TargetLang} 원문={Logger.Preview(Mask(text))}");
+            (bool ok, string result) = await TranslateAsync(text,
+                msg => { ShowPopup(msg, Timeout.Infinite); return Task.CompletedTask; });
+            Logger.Log($"번역 완료: {sw.ElapsedMilliseconds}ms 성공={ok} 결과={Logger.Preview(Mask(result))}");
             if (ok)
             {
                 try { Clipboard.SetText(result); } catch { }
@@ -351,6 +395,12 @@ sealed class TrayAppContext : ApplicationContext
                 _deepl.Dispose();
                 _lmstudio.Dispose();
                 _builtin.Dispose();
+                _deepseek.Dispose();
+                _groq.Dispose();
+                _openai.Dispose();
+                _google.Dispose();
+                _papago.Dispose();
+                _ms.Dispose();
                 _popup?.Dispose();
             }
             catch { }

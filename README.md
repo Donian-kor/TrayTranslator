@@ -6,7 +6,27 @@
 - 실행 파일: `TrayTranslator/publish/TrayTranslator.exe` (단일 파일, .NET 10 필요)
   - 앞으로 업데이트는 이 폴더에 덮어씀. 업데이트 시 기존 실행은 트레이 우클릭 → 종료 후 실행
 - 메모리: 시작 직후 약 49MB (PyQt안 대비 1/2 이하, 공유 런타임 포함)
-- 모델: 설정에서 선택 — `Gemini`(무료 티어) / `DeepL API Free`(월 50만 자) / `LM Studio`(로컬, 무제한) / `로컬 (Hy-MT2)`(내장, 무제한)
+- 모델: 설정의 **번역 엔진**에서 선택 (10종)
+
+  | 엔진 | 종류 | 비고 |
+  |---|---|---|
+  | `Gemini` | LLM | 모델 목록 고정, 무료 티어 |
+  | `DeepL` | 번역 전용 | 월 50만 자 |
+  | `LM Studio` | LLM (로컬) | 키 불필요, 무제한 |
+  | `로컬 (Hy-MT2)` | 내장 | 키 불필요, 무제한 |
+  | `DeepSeek` | LLM | 모델 2종(`deepseek-flash`, `deepseek-v4-pro`) |
+  | `Groq` | LLM | 서버에서 모델 목록 자동 조회 |
+  | `OpenAI` | LLM | 서버에서 모델 목록 자동 조회 |
+  | `Google 번역` | 번역 전용 | 모델 선택 없음 |
+  | `Papago` | 번역 전용 | Client ID + Secret 2칸 |
+  | `Microsoft 번역` | 번역 전용 | 모델 선택 없음 |
+
+  - LLM 엔진은 thinking(추론) 모드를 끄고 요청해 결과에 추론 과정이 섞이지 않게 한다
+  - 번역 전용 API는 추론 개념이 없어 항상 즉시 응답한다
+  - Papago만 API 키가 두 개(Client ID / Client Secret)라 입력창이 2칸 나온다
+  - 내장 엔진 첫 사용 시 llama-server(Vulkan, 약 32MB) 자동 다운로드 + 모델 필요
+    (파일 찾기 또는 Q4 1.1GB 다운로드). GPU 전체 오프로드(-ngl 99)로 LM Studio급 속도.
+    사용 중 메모리는 약 2GB (별도 프로세스, 앱 종료 시 함께 종료)
   - 내장 엔진 첫 사용 시 llama-server(Vulkan, 약 32MB) 자동 다운로드 + 모델 필요
     (파일 찾기 또는 Q4 1.1GB 다운로드). GPU 전체 오프로드(-ngl 99)로 LM Studio급 속도.
     사용 중 메모리는 약 2GB (별도 프로세스, 앱 종료 시 함께 종료)
@@ -29,9 +49,10 @@
 ## 사용법
 
 1. API 키 발급 (LM Studio는 키 불필요, 서버만 켜두기)
-   - Gemini: https://aistudio.google.com (카드 불필요)
-   - DeepL: https://www.deepl.com/pro-api (Free 플랜, 카드 등록 필요)
-   - LM Studio: 로컬 서버 시작 후 모델 로드 (기본 http://localhost:1234)
+    - Gemini: https://aistudio.google.com (카드 불필요)
+    - DeepL: https://www.deepl.com/pro-api (Free 플랜, 카드 등록 필요)
+    - LM Studio: 로컬 서버 시작 후 모델 로드 (기본 http://localhost:1234)
+    > 모든 API 키는 개인이 직접 발급받아 사용해야 합니다. (LM Studio는 예외)
 2. `TrayTranslator.exe` 실행 → 트레이 아이콘 우클릭 → **설정** → **번역 엔진** 선택 →
    키/주소/모델 입력 → **연결 테스트** → 저장
    - 핫키도 설정에서 변경 가능 (Ctrl/Alt/Shift/Win 중 1개 이상 + A-Z, 0-9, F1-F12)
@@ -76,6 +97,37 @@
 ## 자동 시작 등록
 
 `Win+R` → `shell:startup` → `TrayTranslator.exe` 바로가기 복사.
+
+## 번역 엔진 추가 방법
+
+엔진 식별은 문자열이 아니라 `AppSettings.ProviderKind` enum으로 처리합니다.
+모든 분기에 `default: throw`가 있어, 새 엔진을 추가하고 분기를 빠뜨리면
+**화면이 이상해지는 대신 즉시 예외로 드러납니다.**
+
+추가할 때 수정할 곳(`dotnet build`가 통과할 때까지):
+
+1. `AppSettings.cs`
+   - `ProviderKind` enum에 값 추가
+   - `DisplayName()`에 표시 이름 추가 (없으면 throw)
+   - `Providers` 배열에 표시 문자열 추가
+   - `NeedsKey` / `HasModel` / `IsOpenAiCompat` / `IsTranslateApi` 판정에 포함 여부 결정
+   - OpenAI 호환이면 `OpenAiServices` 테이블에 항목 추가 (기본 주소·모델 목록)
+2. `AppSettings.cs` — 키가 필요하면 `XxxKey` + `XxxKeyEnc` 프로퍼티 추가 (DPAPI 암호화)
+3. `TrayAppContext.cs` — 3곳 switch에 케이스 추가
+   - 조각 크기 / `TranslateAsync()` 번역 분기 / `ActiveKey` 키 조회
+4. `SettingsForm.cs`
+   - `LoadFieldsFromSettings()`, `SaveFieldsToSettings()` — 설정 ↔ 메모리
+   - `OnTest()` — 연결 테스트
+   - UI 표시 여부는 `AppSettings`의 판정 함수와 `LayoutForProvider()`가 처리
+5. 클라이언트 작성 — LLM이면 `OpenAiCompatClient`, 번역 전용이면 전용 클라이언트
+
+> `SettingsForm`은 엔진별 설정을 `EngineFields` 객체로 모아둔다.
+> 새 엔진을 추가할 때 화면 분기가 늘 필요 없고, 판정 함수만 맞추면
+> 입력창·모델 드롭다운·서버 주소가 자동으로 나타난다/사라진다.
+
+> 주의: 엔진 전환 시 `StashPreviousProviderFields()`가 **직전 엔진**을 기준으로
+> 입력창 값을 보관한다. ComboBox는 선택 즉시 `Provider`가 새 값으로 바뀌므로, 현재 엔진이 아니라
+> `PrevEngine`을 기준으로 해야 값이 섞이지 않는다.
 
 ## 빌드
 
