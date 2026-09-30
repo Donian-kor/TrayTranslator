@@ -10,16 +10,18 @@
 
   | 엔진 | 종류 | 비고 |
   |---|---|---|
-  | `Gemini` | LLM | 모델 목록 고정, 무료 티어 |
-  | `DeepL` | 번역 전용 | 월 50만 자 |
-  | `LM Studio` | LLM (로컬) | 키 불필요, 무제한 |
-  | `오프라인 번역 (무료)` | 내장 | 키 불필요, 무제한 |
-  | `DeepSeek` | LLM | 모델 2종(`deepseek-flash`, `deepseek-v4-pro`) |
+  | **AI 모델** | | |
+  | `DeepSeek` | LLM | 모델 2종(DeepSeek Flash / V4 Pro), thinking off |
+  | `Gemini` | LLM | 모델 3종(Flash-Lite 2.5 / 2.0 / Flash 2.5), 무료 티어 |
   | `Groq` | LLM | 서버에서 모델 목록 자동 조회 |
+  | `LM Studio` | LLM (로컬) | 키 불필요, 무제한 |
   | `OpenAI` | LLM | 서버에서 모델 목록 자동 조회 |
+  | **번역 전용** | | |
+  | `DeepL` | 번역 전용 | 월 50만 자 |
   | `Google 번역` | 번역 전용 | 모델 선택 없음 |
-  | `Papago` | 번역 전용 | Client ID + Secret 2칸 |
-  | `Microsoft 번역` | 번역 전용 | 모델 선택 없음 |
+  | `Microsoft 번역` | 번역 전용 | 지역 리소스는 리전 입력 |
+  | `Papago` | 번역 전용 | Client ID + Secret 2칸, 원본 언어 직접 선택 |
+  | `오프라인 번역 (무료)` | 내장 | 키 불필요, 무제한 |
 
   - LLM 엔진은 thinking(추론) 모드를 끄고 요청해 결과에 추론 과정이 섞이지 않게 한다
   - 번역 전용 API는 추론 개념이 없어 항상 즉시 응답한다
