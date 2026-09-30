@@ -58,9 +58,10 @@ sealed class TrayAppContext : ApplicationContext
     private static readonly Font MenuFontBold = new("Segoe UI", 9f, FontStyle.Bold);
     private static readonly Font MenuFontRegular = new("Segoe UI", 9f);
 
-    // 선택된 대상 언어 강조: 체크 + 볼드 + 인디고. 나머지는 일반 표시.
+    // 선택된 대상 언어 강조: 체크 + 볼드 + 인디고 + 연노랑 바탕 고정. 나머지는 일반 표시.
     private void UpdateLangChecks(ToolStripMenuItem langMenu)
     {
+        var highlight = Color.FromArgb(0xFF, 0xF9, 0xC4);
         foreach (ToolStripMenuItem i in langMenu.DropDownItems)
         {
             bool on = i.Text == _settings.TargetLang;
@@ -69,6 +70,7 @@ sealed class TrayAppContext : ApplicationContext
             i.ForeColor = on
                 ? Color.FromArgb(0x3F, 0x51, 0xB5)
                 : Color.FromArgb(0x21, 0x21, 0x21);
+            i.BackColor = on ? highlight : Color.Empty;
         }
     }
 
