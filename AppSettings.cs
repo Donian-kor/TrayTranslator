@@ -200,14 +200,16 @@ sealed class AppSettings
     /// <summary>알려진 엔진 표시 이름인지. 모르면 조용히 기본값으로 두지 않고 사용자에게 선택시킨다.</summary>
     public static bool IsKnownProvider(string? name) => Providers.Contains(name ?? "");
 
-    /// <summary>표시 이름 → enum. 알 수 없는 값은 Gemini로 대체(구버전/손상 파일 대비).</summary>
+    /// <summary>표시 이름 → enum. 알 수 없는 값은 내장(로컬)으로 대체.
+    /// 내장은 키·쿼터·네트워크가 필요 없어 최후 안전망으로 가장 안전하다.
+    /// (사용자 경로에서는 IsKnownProvider 가드로 강제 선택되므로 여기 도달은 손상 파일 등 예외 상황뿐)</summary>
     public static ProviderKind ParseProvider(string? name)
     {
         foreach (var kind in Enum.GetValues<ProviderKind>())
         {
             if (DisplayName(kind) == name) return kind;
         }
-        return ProviderKind.Gemini;
+        return ProviderKind.Builtin;
     }
 
     /// <summary>클립보드에 들어있는 값이 등록된 비밀키 중 하나인지. 번역 대상에서 제외하는 가드용.</summary>

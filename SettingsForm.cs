@@ -158,7 +158,7 @@ sealed class SettingsForm : Form
         };
         _provider.Items.AddRange(AppSettings.Providers);
         _provider.SelectedItem = AppSettings.Providers.Contains(settings.Provider)
-            ? settings.Provider : AppSettings.DisplayName(AppSettings.ProviderKind.Gemini);
+            ? settings.Provider : AppSettings.DisplayName(AppSettings.ParseProvider(settings.Provider));
         _provider.SelectedIndexChanged += (_, _) => SwitchProvider();
 
         _lblLang = new Label { Text = "번역 대상 언어:", Location = new Point(196, 12), AutoSize = true };
@@ -249,7 +249,7 @@ sealed class SettingsForm : Form
     }
 
     private string Provider => _provider.SelectedItem?.ToString()
-        ?? AppSettings.DisplayName(AppSettings.ProviderKind.Gemini);
+        ?? AppSettings.DisplayName(AppSettings.ParseProvider(_settings.Provider));
     private AppSettings.ProviderKind Engine => AppSettings.ParseProvider(Provider);
     private AppSettings.ProviderKind PrevEngine => _prevProvider;
     private bool IsGemini => Engine == AppSettings.ProviderKind.Gemini;
