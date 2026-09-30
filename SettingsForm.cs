@@ -149,6 +149,8 @@ sealed class SettingsForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         ShowInTaskbar = false;
+        BackColor = Color.White;
+        Font = new Font("Segoe UI", 9f);
 
         var lblProvider = new Label { Text = "번역 엔진:", Location = new Point(12, 12), AutoSize = true };
         _provider = new ComboBox
@@ -242,10 +244,52 @@ sealed class SettingsForm : Form
         AcceptButton = _btnSave;
         CancelButton = _btnCancel;
 
+        ApplyMaterialTheme();
+
         LoadProviderFields();
         LayoutForProvider();
         RefreshFileStatus();
         if (IsLM) _ = RefreshLmModelsAsync();
+    }
+
+    // 머티리얼 테마 일괄 적용. 레이아웃(위치)은 건드리지 않고 색·폰트·플랫 스타일만 바꾼다.
+    private void ApplyMaterialTheme()
+    {
+        foreach (Control c in Controls)
+        {
+            switch (c)
+            {
+                case Button b when b == _btnSave:
+                    Material.Contained(b);
+                    b.Size = new Size(110, 34);
+                    break;
+                case Button b when b == _btnCancel:
+                    Material.TextButton(b);
+                    b.Size = new Size(104, 34);
+                    break;
+                case Button b when b == _btnBrowse:
+                    Material.Outlined(b);
+                    break;
+                case Button b:
+                    Material.Tonal(b);
+                    break;
+                case TextBox t:
+                    Material.Field(t);
+                    break;
+                case ComboBox cb:
+                    Material.FieldCombo(cb);
+                    break;
+                case Label l when l == _lblTest || l == _lblHint || l == _lblUsage || l == _lblFile:
+                    break; // 상태 문구는 기존 회색 유지
+                case Label l:
+                    Material.SectionLabel(l);
+                    break;
+                case CheckBox ch:
+                    ch.Font = new Font("Segoe UI", 9f);
+                    break;
+            }
+        }
+        _btnTest.Size = new Size(356, 36);
     }
 
     private string Provider => _provider.SelectedItem?.ToString()
@@ -478,7 +522,7 @@ sealed class SettingsForm : Form
         _lblCtx.Visible = builtin;
         _cmbCtx.Visible = builtin;
 
-        int y = 108;
+        int y = 112;
         if (builtin)
         {
             y = 60;
@@ -539,13 +583,13 @@ sealed class SettingsForm : Form
             _lblModel.Location = new Point(12, y); y += 20;
             _cmbModel.Location = new Point(12, y); y += 28;
         }
-        _btnTest.Location = new Point(12, y); y += 34;
+        _btnTest.Location = new Point(12, y); y += 40;
         _lblTest.Location = new Point(12, y); y += 36;
         _lblHint.Location = new Point(12, y); y += 18;
         _lblUsage.Location = new Point(12, y); y += 18;
-        _btnSave.Location = new Point(212, y);
-        _btnCancel.Location = new Point(293, y);
-        ClientSize = new Size(380, y + 36);
+        _btnSave.Location = new Point(146, y);
+        _btnCancel.Location = new Point(264, y);
+        ClientSize = new Size(380, y + 40);
     }
 
     private void RefreshFileStatus()
