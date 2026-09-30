@@ -65,6 +65,49 @@ static class Material
         b.ForeColor = SectionFg;
     }
 
+    // 트레이 우클릭 메뉴용 머티리얼 렌더러 (흰 바탕·인디고 하이라이트·얇은 테두리)
+    public sealed class MaterialMenuColors : ProfessionalColorTable
+    {
+        private static readonly Color Selected = Color.FromArgb(0xE8, 0xEA, 0xF6);
+        private static readonly Color Pressed = Color.FromArgb(0xC5, 0xCA, 0xE9);
+        private static readonly Color Line = Color.FromArgb(0xE0, 0xE0, 0xE0);
+
+        public override Color MenuItemSelected => Selected;
+        public override Color MenuItemSelectedGradientBegin => Selected;
+        public override Color MenuItemSelectedGradientEnd => Selected;
+        public override Color MenuItemPressedGradientBegin => Pressed;
+        public override Color MenuItemPressedGradientMiddle => Pressed;
+        public override Color MenuItemPressedGradientEnd => Pressed;
+        public override Color MenuItemBorder => Pressed;
+        public override Color MenuBorder => Line;
+        public override Color ToolStripBorder => Line;
+        public override Color ToolStripDropDownBackground => Color.White;
+        public override Color ImageMarginGradientBegin => Color.White;
+        public override Color ImageMarginGradientMiddle => Color.White;
+        public override Color ImageMarginGradientEnd => Color.White;
+        public override Color SeparatorDark => Line;
+        public override Color SeparatorLight => Color.White;
+    }
+
+    public sealed class MaterialMenuRenderer : ToolStripProfessionalRenderer
+    {
+        public MaterialMenuRenderer() : base(new MaterialMenuColors()) { RoundedEdges = false; }
+
+        public static void ThemeMenu(ToolStripDropDownMenu menu)
+        {
+            menu.Renderer = new MaterialMenuRenderer();
+            menu.Font = new Font("Segoe UI", 9f);
+            menu.ShowImageMargin = false;
+            menu.BackColor = Color.White;
+            foreach (ToolStripItem i in menu.Items)
+            {
+                i.ForeColor = Color.FromArgb(0x21, 0x21, 0x21);
+                if (i is ToolStripMenuItem mi && mi.HasDropDownItems && mi.DropDown is ToolStripDropDownMenu sub)
+                    ThemeMenu(sub);
+            }
+        }
+    }
+
     // 테두리만 있는 보조 액션 (파일 찾기)
     public static void Outlined(Button b)
     {

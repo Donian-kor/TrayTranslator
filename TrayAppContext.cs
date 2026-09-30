@@ -79,6 +79,7 @@ sealed class TrayAppContext : ApplicationContext
         var fileTr = new ToolStripMenuItem("파일 번역...", null, (_, _) => TranslateFile());
         var exit = new ToolStripMenuItem("종료", null, (_, _) => ExitThread());
         menu.Items.AddRange([langMenu, new ToolStripSeparator(), settings, fileTr, exit]);
+        Material.MaterialMenuRenderer.ThemeMenu(menu);
         return menu;
     }
 

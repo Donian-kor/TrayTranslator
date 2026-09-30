@@ -162,6 +162,10 @@ sealed class SettingsForm : Form
     public SettingsForm(AppSettings settings)
     {
         _settings = settings;
+        // 핸들을 먼저 만들어 DPI/폰트 스케일이 레이아웃 전에 한 번만 적용되게 한다.
+        // (중간에 핸들이 생기면 그때까지 잡은 좌표와 이후 좌표의 스케일이 어긋난다)
+        _ = Handle;
+        _settings = settings;
         _origMods = settings.HotkeyMods;
         _origKey = settings.HotkeyKey;
         _prevProvider = settings.Engine;
@@ -576,7 +580,8 @@ sealed class SettingsForm : Form
         if (builtin)
         {
             y = 60;
-            _lblFile.Location = new Point(12, y); y += 52;
+            _lblFile.Location = new Point(12, y);
+            y += FitLabel(_lblFile, 2) + 8;
             // 버튼 너비는 텍스트 실측 + 여유분. 한 행에 안 들어가면 세로로 쌓음.
             int bw = TextRenderer.MeasureText(_btnBrowse.Text, _btnBrowse.Font).Width + 30;
             int dw = TextRenderer.MeasureText(_btnDownload.Text, _btnDownload.Font).Width + 30;
@@ -634,12 +639,25 @@ sealed class SettingsForm : Form
             _cmbModel.Location = new Point(12, y); y += 28;
         }
         _btnTest.Location = new Point(12, y); y += 40;
-        _lblTest.Location = new Point(12, y); y += 36;
+        _lblTest.Location = new Point(12, y);
+        y += FitLabel(_lblTest, 3) + 8;
         _lblHint.Location = new Point(12, y); y += 18;
         _lblUsage.Location = new Point(12, y); y += 18;
         _btnSave.Location = new Point(146, y);
         _btnCancel.Location = new Point(264, y);
-        ClientSize = new Size(380, y + 40);
+        ClientSize = new Size(380, y + 34 + 14);
+    }
+
+    // 라벨 높이를 내용(줄바꿈 포함)에 맞춤. 바뀐 높이를 반환한다.
+    private int FitLabel(Label l, int maxLines)
+    {
+        using var g = CreateGraphics();
+        int lineH = TextRenderer.MeasureText(g, "가", l.Font).Height;
+        var sz = TextRenderer.MeasureText(g, l.Text, l.Font, new Size(l.Width, 0),
+            TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
+        int h = Math.Min(Math.Max(sz.Height + 4, lineH), lineH * maxLines);
+        l.Height = h;
+        return h;
     }
 
     private void RefreshFileStatus()
@@ -663,6 +681,8 @@ sealed class SettingsForm : Form
         }
         // 등록된 모델이 있으면 다운로드 불필요
         if (!_downloading) _btnDownload.Enabled = !exists;
+        // 텍스트 길이에 따라 아래 행들을 다시 맞춤
+        if (Engine == AppSettings.ProviderKind.Builtin) LayoutForProvider();
     }
 
     private void OnBrowse(object? sender, EventArgs e)
@@ -751,6 +771,7 @@ sealed class SettingsForm : Form
             _lblTest.Text = msg;
         }
         finally { _btnTest.Enabled = true; }
+        LayoutForProvider();
     }
 
     private void OnSave(object? sender, EventArgs e)
