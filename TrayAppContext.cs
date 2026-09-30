@@ -55,22 +55,35 @@ sealed class TrayAppContext : ApplicationContext
         }
     }
 
+    private static readonly Font MenuFontBold = new("Segoe UI", 9f, FontStyle.Bold);
+    private static readonly Font MenuFontRegular = new("Segoe UI", 9f);
+
+    // 선택된 대상 언어 강조: 체크 + 볼드 + 인디고. 나머지는 일반 표시.
+    private void UpdateLangChecks(ToolStripMenuItem langMenu)
+    {
+        foreach (ToolStripMenuItem i in langMenu.DropDownItems)
+        {
+            bool on = i.Text == _settings.TargetLang;
+            i.Checked = on;
+            i.Font = on ? MenuFontBold : MenuFontRegular;
+            i.ForeColor = on
+                ? Color.FromArgb(0x3F, 0x51, 0xB5)
+                : Color.FromArgb(0x21, 0x21, 0x21);
+        }
+    }
+
     private ContextMenuStrip BuildMenu()
     {
         var menu = new ContextMenuStrip();
         var langMenu = new ToolStripMenuItem("번역 대상 언어");
         foreach (var lang in AppSettings.Languages)
         {
-            var item = new ToolStripMenuItem(lang)
-            {
-                Checked = lang == _settings.TargetLang,
-            };
+            var item = new ToolStripMenuItem(lang);
             item.Click += (_, _) =>
             {
                 _settings.TargetLang = lang;
                 _settings.Save();
-                foreach (ToolStripMenuItem i in langMenu.DropDownItems)
-                    i.Checked = i.Text == lang;
+                UpdateLangChecks(langMenu);
                 UpdateTrayText();
             };
             langMenu.DropDownItems.Add(item);
@@ -80,6 +93,7 @@ sealed class TrayAppContext : ApplicationContext
         var exit = new ToolStripMenuItem("종료", null, (_, _) => ExitThread());
         menu.Items.AddRange([langMenu, new ToolStripSeparator(), settings, fileTr, exit]);
         Material.MaterialMenuRenderer.ThemeMenu(menu);
+        UpdateLangChecks(langMenu);
         return menu;
     }
 
