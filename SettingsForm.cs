@@ -10,9 +10,12 @@ sealed class SettingsForm : Form
 
     private readonly Label _lblKey;
     private readonly TextBox _txtKey;
-    // Papago만 사용하는 두 번째 입력창 (Client Secret)
+    // Papago만 사용하는 두 번째 입력창 (Client Secret) / MS 리전 겸용
     private readonly Label _lblKey2;
     private readonly TextBox _txtKey2;
+    // Papago만 사용하는 원본 언어 드롭다운 (source 필수, auto 미지원)
+    private readonly Label _lblSource;
+    private readonly ComboBox _cmbSource;
     private readonly Label _lblHost;
     private readonly TextBox _txtHost;
     private readonly Label _lblLang;
@@ -62,6 +65,8 @@ sealed class SettingsForm : Form
     {
         public string Key = "";
         public string Second = "";   // Papago Client Secret 등 두 번째 값
+        public string Region = "";   // MS Translator 리전 등
+        public string Source = "";   // Papago 원본 언어 (표시 이름)
         public string Host = "";
         public string Model = "";
     }
@@ -97,7 +102,9 @@ sealed class SettingsForm : Form
         Fields(AppSettings.ProviderKind.GoogleTranslate).Key = s.GoogleKey;
         Fields(AppSettings.ProviderKind.Papago).Key = s.PapagoClientId;
         Fields(AppSettings.ProviderKind.Papago).Second = s.PapagoClientSecret;
+        Fields(AppSettings.ProviderKind.Papago).Source = s.PapagoSource;
         Fields(AppSettings.ProviderKind.MsTranslator).Key = s.MsTranslatorKey;
+        Fields(AppSettings.ProviderKind.MsTranslator).Region = s.MsTranslatorRegion;
     }
 
     // 메모리 → settings.json
@@ -121,7 +128,9 @@ sealed class SettingsForm : Form
         s.GoogleKey = Fields(AppSettings.ProviderKind.GoogleTranslate).Key;
         s.PapagoClientId = Fields(AppSettings.ProviderKind.Papago).Key;
         s.PapagoClientSecret = Fields(AppSettings.ProviderKind.Papago).Second;
+        s.PapagoSource = Fields(AppSettings.ProviderKind.Papago).Source;
         s.MsTranslatorKey = Fields(AppSettings.ProviderKind.MsTranslator).Key;
+        s.MsTranslatorRegion = Fields(AppSettings.ProviderKind.MsTranslator).Region;
     }
 
     public SettingsForm(AppSettings settings)
@@ -167,6 +176,10 @@ sealed class SettingsForm : Form
 
         _lblKey2 = new Label { Location = new Point(12, 108), AutoSize = true };
         _txtKey2 = new TextBox { Location = new Point(12, 128), Width = 356, UseSystemPasswordChar = true };
+
+        _lblSource = new Label { Text = "원본 언어 (Papago는 자동 감지 없음):", AutoSize = true };
+        _cmbSource = new ComboBox { Width = 356, DropDownStyle = ComboBoxStyle.DropDownList };
+        _cmbSource.Items.AddRange(AppSettings.Languages);
 
         _lblHost = new Label { Text = "서버 주소:", AutoSize = true };
         _txtHost = new TextBox { Width = 356 };
@@ -222,6 +235,7 @@ sealed class SettingsForm : Form
         _btnSave.Click += OnSave;
 
         Controls.AddRange([lblProvider, _provider, _lblKey, _txtKey, _lblKey2, _txtKey2, _lblHost, _txtHost,
+            _lblSource, _cmbSource,
             _lblFile, _btnBrowse, _btnDownload, _lblCtx, _cmbCtx,
             _lblLang, _lang, _lblHotkey, _chkCtrl, _chkAlt, _chkShift, _chkWin, _cmbKey,
             _lblModel, _cmbModel, _btnTest, _lblTest, _lblHint, _lblUsage, _btnSave, _btnCancel]);
@@ -275,7 +289,12 @@ sealed class SettingsForm : Form
         var f = Fields(kind);
         f.Key = _txtKey.Text.Trim();
         if (kind == AppSettings.ProviderKind.Papago)
+        {
             f.Second = _txtKey2.Text.Trim();
+            f.Source = _cmbSource.SelectedItem?.ToString() ?? "한국어";
+        }
+        if (kind == AppSettings.ProviderKind.MsTranslator)
+            f.Region = _txtKey2.Text.Trim();
         if (AppSettings.IsOpenAiCompat(kind))
         {
             f.Host = _txtHost.Text.Trim();
@@ -377,6 +396,10 @@ sealed class SettingsForm : Form
             _lblKey.Text = "Papago Client ID:";
             _lblKey2.Text = "Papago Client Secret:";
         }
+        else if (kind == AppSettings.ProviderKind.MsTranslator)
+        {
+            _lblKey2.Text = "리전 (지역 리소스만, 예: koreacentral):";
+        }
         else if (kind == AppSettings.ProviderKind.DeepL)
         {
             _lblKey.Text = "DeepL API 키 (Free):";
@@ -388,7 +411,16 @@ sealed class SettingsForm : Form
 
         // 값 채우기
         _txtKey.Text = f.Key;
-        if (kind == AppSettings.ProviderKind.Papago) _txtKey2.Text = f.Second;
+        if (kind == AppSettings.ProviderKind.Papago)
+        {
+            _txtKey2.Text = f.Second;
+            _cmbSource.SelectedItem = AppSettings.Languages.Contains(f.Source)
+                ? f.Source : AppSettings.Languages[0];
+        }
+        else if (kind == AppSettings.ProviderKind.MsTranslator)
+        {
+            _txtKey2.Text = f.Region;
+        }
         else _txtKey2.Text = "";
 
         // Gemini는 OpenAI 호환은 아니지만 고정 모델 목록이 있다.
@@ -426,9 +458,11 @@ sealed class SettingsForm : Form
         bool compat = AppSettings.IsOpenAiCompat(kind);
         bool showModel = AppSettings.HasModel(kind);
         bool papago = kind == AppSettings.ProviderKind.Papago;
+        bool ms = kind == AppSettings.ProviderKind.MsTranslator;
 
-        // Papago만 두 번째 입력창(Client Secret)을 보여준다.
-        _lblKey2.Visible = _txtKey2.Visible = papago;
+        // 두 번째 입력창: Papago(Client Secret) / MS(리전)만 사용
+        _lblKey2.Visible = _txtKey2.Visible = papago || ms;
+        _lblSource.Visible = _cmbSource.Visible = papago;
         _lblKey.Visible = _txtKey.Visible = !builtin;
         _lblHost.Visible = _txtHost.Visible = compat && !builtin;
         _lblModel.Visible = showModel;
@@ -475,16 +509,19 @@ sealed class SettingsForm : Form
                 _txtKey.Location = new Point(12, y); y += 28;
                 _lblKey2.Location = new Point(12, y); y += 20;
                 _txtKey2.Location = new Point(12, y); y += 28;
+                _lblSource.Location = new Point(12, y); y += 20;
+                _cmbSource.Location = new Point(12, y); y += 28;
+            }
+            else if (ms)
+            {
+                _lblKey2.Location = new Point(12, y); y += 20;
+                _txtKey2.Location = new Point(12, y); y += 28;
             }
             if (compat)
             {
                 _lblHost.Location = new Point(12, y); y += 20;
                 _txtHost.Location = new Point(12, y); y += 28;
             }
-        }
-        {
-            _lblHost.Location = new Point(12, y); y += 20;
-            _txtHost.Location = new Point(12, y); y += 28;
         }
         _lblHotkey.Location = new Point(12, y); y += 20;
         _chkCtrl.Location = new Point(14, y);
@@ -606,8 +643,9 @@ sealed class SettingsForm : Form
                 AppSettings.ProviderKind.Groq => await _groqProbe.TestAsync(f.Host, f.Model, f.Key, target),
                 AppSettings.ProviderKind.OpenAi => await _openaiProbe.TestAsync(f.Host, f.Model, f.Key, target),
                 AppSettings.ProviderKind.GoogleTranslate => await _googleProbe.TestAsync(f.Key, target),
-                AppSettings.ProviderKind.Papago => await _papagoProbe.TestAsync(f.Key, f.Second, target),
-                AppSettings.ProviderKind.MsTranslator => await _msProbe.TestAsync(f.Key, target),
+                AppSettings.ProviderKind.Papago => await _papagoProbe.TestAsync(
+                    f.Key, f.Second, f.Source, target),
+                AppSettings.ProviderKind.MsTranslator => await _msProbe.TestAsync(f.Key, f.Region, target),
                 _ => throw new InvalidOperationException($"새 엔진 추가 시 연결 테스트 분기 갱신 필요: {kind}"),
             };
             _lblTest.ForeColor = ok ? Color.Green : Color.Red;

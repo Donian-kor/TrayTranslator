@@ -17,7 +17,8 @@ sealed class MsTranslatorClient : IDisposable
         ["Español"] = "es", ["Français"] = "fr", ["Deutsch"] = "de", ["Tiếng Việt"] = "vi",
     };
 
-    public async Task<(bool Ok, string Text)> TranslateAsync(string text, string targetLang, string apiKey)
+    public async Task<(bool Ok, string Text)> TranslateAsync(
+        string text, string targetLang, string apiKey, string region = "")
     {
         var cacheKey = (text, targetLang);
         if (_cache.TryGetValue(cacheKey, out var cached))
@@ -37,6 +38,9 @@ sealed class MsTranslatorClient : IDisposable
                 Content = JsonContent.Create(new[] { new { Text = text } }),
             };
             req.Headers.Add("Ocp-Apim-Subscription-Key", apiKey.Trim());
+            // 지역 리소스라면 리전 헤더 필수. 없으면 401.
+            if (!string.IsNullOrWhiteSpace(region))
+                req.Headers.Add("Ocp-Apim-Subscription-Region", region.Trim());
             res = await _http.SendAsync(req);
         }
         catch (TaskCanceledException)
@@ -53,11 +57,18 @@ sealed class MsTranslatorClient : IDisposable
         {
             var json = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode)
-                return (false, $"[오류 {(int)res.StatusCode}] {Trim(ExtractMessage(json), 200)}");
+            {
+                string hint = (int)res.StatusCode == 401 && string.IsNullOrWhiteSpace(region)
+                    ? " 지역 리소스라면 설정에 리전(예: koreacentral)을 입력하세요."
+                    : "";
+                return (false, $"[오류 {(int)res.StatusCode}] {Trim(ExtractMessage(json), 200)}{hint}");
+            }
             try
             {
                 using var doc = JsonDocument.Parse(json);
-                var t = doc.RootElement[0].GetProperty("text").GetString()?.Trim();
+                // v3 응답: [{ "translations": [{ "text": "...", "to": "en" }] }]
+                var t = doc.RootElement[0].GetProperty("translations")[0]
+                    .GetProperty("text").GetString()?.Trim();
                 if (string.IsNullOrEmpty(t)) return (false, "[빈 응답] 번역 결과가 비어 있습니다.");
                 if (_cache.Count > 100) _cache.Clear();
                 _cache[cacheKey] = t;
@@ -70,9 +81,9 @@ sealed class MsTranslatorClient : IDisposable
         }
     }
 
-    public async Task<(bool Ok, string Message)> TestAsync(string apiKey, string targetLang)
+    public async Task<(bool Ok, string Message)> TestAsync(string apiKey, string region, string targetLang)
     {
-        var (ok, result) = await TranslateAsync("Say OK", targetLang, apiKey);
+        var (ok, result) = await TranslateAsync("Say OK", targetLang, apiKey, region);
         return ok ? (true, "연결 성공 (Microsoft 번역)") : (false, result);
     }
 

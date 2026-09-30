@@ -9,7 +9,9 @@ sealed class GoogleTranslateClient : IDisposable
 {
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly Dictionary<(string Text, string Lang), string> _cache = new();
-    private const string Base = "https://translate.googleapis.com/translate/v2";
+    // 공식 엔드포인트: translation.googleapis.com/language/translate/v2
+    // (translate.googleapis.com/translate/v2 는 404)
+    private const string Base = "https://translation.googleapis.com/language/translate/v2";
 
     public static readonly Dictionary<string, string> LangMap = new()
     {

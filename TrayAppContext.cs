@@ -118,9 +118,9 @@ sealed class TrayAppContext : ApplicationContext
         {
             AppSettings.ProviderKind.DeepL => 30000,
             AppSettings.ProviderKind.Gemini => 8000,
-            // 번역 전용 API는 문당 과금이 작아 큰 조각을 보낸다
+            // 번역 전용 API는 1회 글자 제한이 작아 작은 조각을 보낸다 (Papago 5000자/N2MT08)
+            AppSettings.ProviderKind.Papago => 4000,
             AppSettings.ProviderKind.GoogleTranslate
-                or AppSettings.ProviderKind.Papago
                 or AppSettings.ProviderKind.MsTranslator => 20000,
             AppSettings.ProviderKind.LmStudio
                 or AppSettings.ProviderKind.DeepSeek
@@ -217,7 +217,7 @@ sealed class TrayAppContext : ApplicationContext
                 var (clip, changed) = GrabSelectedText();
                 viaClipboard = true;
                 if (!changed && !string.IsNullOrWhiteSpace(clip) &&
-                    clip != _settings.ApiKey && !GeminiClient.LooksLikeApiKey(clip))
+                    !_settings.IsSecret(clip))
                 {
                     // 복사가 안 돼서 예전 클립보드 내용이 그대로인 경우: 멋대로 번역하지 않고 확인받음
                     PopupForm? confirm = null;
@@ -239,8 +239,8 @@ sealed class TrayAppContext : ApplicationContext
                 ShowPopup($"텍스트를 드래그한 뒤 {_settings.HotkeyDisplay}를 누르세요.");
                 return;
             }
-            // 클립보드에 복사해둔 API 키를 번역 대상으로 잡는 실수 방지
-            if (text == _settings.ApiKey || text == _settings.DeepLApiKey || GeminiClient.LooksLikeApiKey(text))
+            // 클립보드에 복사해둔 API 키를 번역 대상으로 잡는 실수 방지 (전 엔진 키 검사)
+            if (_settings.IsSecret(text) || GeminiClient.LooksLikeApiKey(text))
             {
                 ShowPopup("클립보드에 API 키가 들어있습니다. 번역할 텍스트를 드래그한 뒤 핫키를 누르세요.");
                 return;
@@ -283,9 +283,10 @@ sealed class TrayAppContext : ApplicationContext
         AppSettings.ProviderKind.GoogleTranslate => _google.TranslateAsync(
             text, _settings.TargetLang, _settings.GoogleKey),
         AppSettings.ProviderKind.Papago => _papago.TranslateAsync(
-            text, _settings.TargetLang, _settings.PapagoClientId, _settings.PapagoClientSecret),
+            text, _settings.PapagoSource, _settings.TargetLang,
+            _settings.PapagoClientId, _settings.PapagoClientSecret),
         AppSettings.ProviderKind.MsTranslator => _ms.TranslateAsync(
-            text, _settings.TargetLang, _settings.MsTranslatorKey),
+            text, _settings.TargetLang, _settings.MsTranslatorKey, _settings.MsTranslatorRegion),
         _ => throw new InvalidOperationException($"새 엔진 추가 시 번역 분기 갱신 필요: {_settings.Engine}"),
     };
 

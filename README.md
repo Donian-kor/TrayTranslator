@@ -1,5 +1,5 @@
 # TrayTranslator
-**버전**: v1.0 (2026-09-30)
+**버전**: v1.5 (2026-09-30)
 
 드래그한 텍스트를 핫키로 즉시 번역해 커서 옆 팝업에 보여주는 트레이 상주 프로그램.
 
@@ -24,9 +24,8 @@
   - LLM 엔진은 thinking(추론) 모드를 끄고 요청해 결과에 추론 과정이 섞이지 않게 한다
   - 번역 전용 API는 추론 개념이 없어 항상 즉시 응답한다
   - Papago만 API 키가 두 개(Client ID / Client Secret)라 입력창이 2칸 나온다
-  - 내장 엔진 첫 사용 시 llama-server(Vulkan, 약 32MB) 자동 다운로드 + 모델 필요
-    (파일 찾기 또는 Q4 1.1GB 다운로드). GPU 전체 오프로드(-ngl 99)로 LM Studio급 속도.
-    사용 중 메모리는 약 2GB (별도 프로세스, 앱 종료 시 함께 종료)
+  - Papago는 원본 언어를 직접 골라야 한다(자동 감지 없음). 조합 제한(ko<->en, ko<->zh-CN, ko<->es, ko<->fr, ko<->vi, en<->ja, en<->fr 등)과 1회 5,000자 제한을 넘기면 N2MT06/N2MT08 에러가 그대로 표시된다
+  - Microsoft 번역은 지역 리소스라면 설정에 리전(예: koreacentral)을 입력해야 한다. 비워두면 전역 리소스로 시도한다
   - 내장 엔진 첫 사용 시 llama-server(Vulkan, 약 32MB) 자동 다운로드 + 모델 필요
     (파일 찾기 또는 Q4 1.1GB 다운로드). GPU 전체 오프로드(-ngl 99)로 LM Studio급 속도.
     사용 중 메모리는 약 2GB (별도 프로세스, 앱 종료 시 함께 종료)
@@ -128,6 +127,33 @@
 > 주의: 엔진 전환 시 `StashPreviousProviderFields()`가 **직전 엔진**을 기준으로
 > 입력창 값을 보관한다. ComboBox는 선택 즉시 `Provider`가 새 값으로 바뀌므로, 현재 엔진이 아니라
 > `PrevEngine`을 기준으로 해야 값이 섞이지 않는다.
+
+## 모델별 API 추가 가이드
+
+### LLM 엔진 (OpenAI 호환: DeepSeek, Groq, OpenAI, LM Studio)
+
+- `AppSettings.cs` ProviderKind enum에 값을 추가하고 `DisplayName()`, `Providers` 배열에 문자열을 추가합니다.
+- `NeedsKey` / `HasModel` / `IsOpenAiCompat` / `IsTranslateApi` 판정 함수에 해당 엔진을 포함하거나 제외합니다.
+- OpenAI 호환 엔진이면 `OpenAiServices` 테이블에 기본 서버 주소와 고정 모델 목록을 추가합니다.
+- `TrayAppContext.cs` Provider switch에 케이스를 추가해 `TranslateAsync()` 분기 처리하고 `ActiveKey` 조회 로직을 업데이트합니다.
+- 클라이언트(`Clients/`)는 `OpenAiCompatClient`을 상속받아 `TranslateAsync()`를 구현합니다(LLM인 경우) 또는 전용 클라이언트를 사용합니다.
+
+### 번역 전용 API (DeepL, Google 번역, Papago, Microsoft 번역)
+
+- `AppSettings.cs`에 ProviderKind 값을 추가하고 `DisplayName()`, `Providers`에 문자열을 추가합니다.
+- `NeedsKey` / `HasModel` / `IsOpenAiCompat` / `IsTranslateApi` 함수에 포함 여부를 결정합니다.
+- 키가 필요하면 `XxxKey` / `XxxKeyEnc` 프로퍼티를 추가(DPAPI 암호화).
+- `TrayAppContext.cs` Provider switch에 케이스를 추가하고 조각 크기(`ChunkSize`) 분기 로직을 업데이트합니다.
+- 각 전용 클라이언트(`DeepLClient`, `GoogleTranslateClient`, `PapagoClient`, `MsTranslatorClient`)는 이미 `TranslateAsync(string, string)`을 구현하고 있습니다. Papago는 Client ID + Client Secret 2칸을 입력받습니다.
+
+### 내장 엔진 (로컬 Hy-MT2)
+
+- `AppSettings.cs`에 `BuiltinModelPath` 및 `BuiltinContextSize` 유지 (이미 기본 제공).
+- llama-server 다운로드 및 버전 관리는 `BuiltinClient.DownloadServerAsync()` / `DownloadModelAsync()`을 이용합니다.
+- 설정에서 Q4 모델 파일(Q4 1.1GB)이 자동 다운로드되며, llama-server(Vulkan 약 32MB)도 최초 1회 다운로드됩니다.
+- 엔진 전환 시 `StashPreviousProviderFields()`가 직전 엔진을 기준으로 입력값을 보관하므로, ComboBox 선택 시 `PrevEngine`을 기준으로 값이 섞이지 않도록 주의합니다.
+
+> **주의**: 새 엔진을 추가하고 `default: throw` 분기를 빠뜨리면 화면이 아닌 즉시 예외가 터지니, `dotnet build`가 통과할 때까지 모든 분기에서 케이스를 처리했는지 확인한다.
 
 ## 빌드
 

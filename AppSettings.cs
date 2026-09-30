@@ -17,6 +17,8 @@ sealed class AppSettings
     [JsonIgnore] public string PapagoClientId { get; set; } = "";
     [JsonIgnore] public string PapagoClientSecret { get; set; } = "";
     [JsonIgnore] public string MsTranslatorKey { get; set; } = "";
+    public string MsTranslatorRegion { get; set; } = "";
+    public string PapagoSource { get; set; } = "한국어";
 
     // settings.json에 실제로 기록되는 필드 (암호문)
     public string ApiKeyEnc
@@ -92,7 +94,7 @@ sealed class AppSettings
     public string Provider { get; set; } = "Gemini";
 
     /// <summary>Provider 문자열을 enum으로 해석. 분기에서는 이 값을 사용할 것.</summary>
-    public ProviderKind Engine => ParseProvider(Provider);
+    [JsonIgnore] public ProviderKind Engine => ParseProvider(Provider);
     public string TargetLang { get; set; } = "한국어";
 
     public static readonly string[] Providers =
@@ -187,6 +189,21 @@ sealed class AppSettings
             if (DisplayName(kind) == name) return kind;
         }
         return ProviderKind.Gemini;
+    }
+
+    /// <summary>클립보드에 들어있는 값이 등록된 비밀키 중 하나인지. 번역 대상에서 제외하는 가드용.</summary>
+    public bool IsSecret(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        string t = text.Trim();
+        string[] secrets =
+        [
+            ApiKey, DeepLApiKey, LmStudioKey, DeepSeekKey, GroqKey, OpenAiKey,
+            GoogleKey, PapagoClientId, PapagoClientSecret, MsTranslatorKey,
+        ];
+        foreach (var s in secrets)
+            if (!string.IsNullOrWhiteSpace(s) && t == s.Trim()) return true;
+        return false;
     }
 
     /// <summary>enum → settings.json에 기록할 문자열.</summary>
