@@ -107,9 +107,9 @@ sealed class AppSettings
     public static readonly (string Header, ProviderKind[] Kinds)[] ProviderGroups =
     [
         ("AI 모델", [ProviderKind.DeepSeek, ProviderKind.Gemini, ProviderKind.Groq,
-            ProviderKind.LmStudio, ProviderKind.OpenAi, ProviderKind.Builtin]),
+            ProviderKind.LmStudio, ProviderKind.OpenAi]),
         ("번역 전용", [ProviderKind.DeepL, ProviderKind.GoogleTranslate,
-            ProviderKind.MsTranslator, ProviderKind.Papago]),
+            ProviderKind.MsTranslator, ProviderKind.Papago, ProviderKind.Builtin]),
     ];
 
     /// <summary>
