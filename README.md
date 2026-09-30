@@ -14,24 +14,25 @@
   - 그래픽카드가 없는 PC에서도 실행됨. GPU 미검출 시 llama-server가 자동으로 CPU로
     폴백한다(실측 확인). 속도는 짧은 문장 기준 GPU 약 0.4초 → CPU 약 0.5~3초,
     메모리는 VRAM 대신 RAM에서 동량 사용
-- 모델: 설정의 **번역 엔진**에서 선택 (10종)
+- 모델: 설정의 **번역 엔진**에서 선택 (10종).
+  현재 동작 확인된 엔진은 `Gemini`. 나머지는 키 발급 후 설정의 연결 테스트로 확인해야 한다.
 
-  | 엔진 | 종류 | 비고 |
-  |---|---|---|
-  | **AI 모델** | | |
-  | `DeepSeek` | LLM | 모델 2종(DeepSeek Flash / V4 Pro), thinking off |
-  | `Gemini` | LLM | 모델 3종(Flash-Lite 2.5 / 2.0 / Flash 2.5), 무료 티어 |
-  | `Groq` | LLM | 서버에서 모델 목록 자동 조회 |
-  | `LM Studio` | LLM (로컬) | 키 불필요, 무제한 |
-  | `OpenAI` | LLM | 서버에서 모델 목록 자동 조회 |
-  | **번역 전용** | | |
-  | `DeepL` | 번역 전용 | 월 50만 자 |
-  | `Google 번역` | 번역 전용 | 모델 선택 없음 |
-  | `Microsoft 번역` | 번역 전용 | 지역 리소스는 리전 입력 |
-  | `Papago` | 번역 전용 | Client ID + Secret 2칸, 원본 언어 직접 선택 |
-  | `오프라인 번역 (무료)` | 내장 | 키 불필요, 무제한 |
+  | 엔진 | 종류 | 상태 | 비고 |
+  |---|---|---|---|
+  | **AI 모델** | | | |
+  | `DeepSeek` | LLM | 연결 테스트 필요 | 모델 2종(DeepSeek Flash / V4 Pro), thinking off |
+  | `Gemini` | LLM | ✅ 동작 확인 | 모델 3종(Flash-Lite 2.5 / 2.0 / Flash 2.5), 무료 티어 |
+  | `Groq` | LLM | 연결 테스트 필요 | 서버에서 모델 목록 자동 조회 |
+  | `LM Studio` | LLM (로컬) | 연결 테스트 필요 | 키 불필요, 무제한 |
+  | `OpenAI` | LLM | 연결 테스트 필요 | 서버에서 모델 목록 자동 조회 |
+  | **번역 전용** | | | |
+  | `DeepL` | 번역 전용 | 연결 테스트 필요 | 월 50만 자 |
+  | `Google 번역` | 번역 전용 | 연결 테스트 필요 | 모델 선택 없음 |
+  | `Microsoft 번역` | 번역 전용 | 연결 테스트 필요 | 지역 리소스는 리전 입력 |
+  | `Papago` | 번역 전용 | 연결 테스트 필요 | Client ID + Secret 2칸, 원본 언어 직접 선택 |
+  | `오프라인 번역 (무료)` | 내장 | 연결 테스트 필요 | 키 불필요, 무제한 |
 
-  - LLM 엔진은 thinking(추론) 모드를 끄고 요청해 결과에 추론 과정이 섞이지 않게 한다
+  - DeepSeek은 thinking off 파라미터(`thinking: {type: disabled}`)로 요청해 결과에 추론 과정이 섞이지 않게 한다. 다른 LLM 엔진은 해당 파라미터를 보내지 않는다. reasoning 계열 모델의 `<think>` 태그가 응답에 섞이면 제거한다
   - 번역 전용 API는 추론 개념이 없어 항상 즉시 응답한다
   - Papago만 API 키가 두 개(Client ID / Client Secret)라 입력창이 2칸 나온다
   - Papago는 원본 언어를 직접 골라야 한다(자동 감지 없음). 조합 제한(ko<->en, ko<->zh-CN, ko<->es, ko<->fr, ko<->vi, en<->ja, en<->fr 등)과 1회 5,000자 제한을 넘기면 N2MT06/N2MT08 에러가 그대로 표시된다
@@ -45,12 +46,12 @@
 
 1. **llama-server 실행 파일** (약 32MB)
    - URL: `https://github.com/ggml-org/llama.cpp/releases/download/b11254/llama-b11254-bin-win-vulkan-x64.zip`
-   - 경로: `%AppData%\TrayTranslator\llama-server\llama-server.exe`
+   - 경로: `%AppData%\TrayTranslator\llama-server\llama-server.exe` (portable 모드는 exe 옆 `data\` 아래)
    - 설명: llama.cpp의 Vulkan 최적화 버전으로, GPU를 활용하여 빠른 번역 속도 제공
 
 2. **Hy-MT2-1.8B-Q4_K_M GGUF 모델 파일** (약 1.1GB)
    - URL: `https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/main/Hy-MT2-1.8B-Q4_K_M.gguf`
-   - 경로: `%AppData%\TrayTranslator\models\hy-mt2.gguf`
+   - 경로: `%AppData%\TrayTranslator\models\hy-mt2.gguf` (portable 모드는 exe 옆 `data\` 아래)
    - 설명: 4비트 양자화된 Q4_K_M 버전의 Hy-MT2-1.8B 모델로, 품질과 속도의 균형을 최적화
 
 > 참고: 설정에 이미 모델 파일이 있는 경우 다운로드를 건너뛰고, llama-server는 버전 확인 후 최신 버전이 아니면 다시 다운로드합니다.
@@ -72,7 +73,7 @@
 2. `TrayTranslator.exe` 실행 → 트레이 아이콘 우클릭 → **설정** → **번역 엔진** 선택 →
    키/주소/모델 입력 → **연결 테스트** → 저장
    - 핫키도 설정에서 변경 가능 (Ctrl/Alt/Shift/Win 중 1개 이상 + A-Z, 0-9, F1-F12)
-   - 모델 404 오류 시 예비 모델로 자동 전환됨
+   - Gemini는 모델 404·일일 한도 시 목록 내 다른 모델로 자동 전환되고, 분당 한도는 대기 후 자동 재시도됨 (다른 엔진은 해당 없음)
 3. 아무 프로그램에서 텍스트 드래그 → **핫키 (기본 Ctrl+Shift+T)**
    - 선택 텍스트를 접근성(UIA) API로 직접 읽음. 클립보드를 건드리지 않음
    - UIA 미지원 앱에서는 기존 Ctrl+C 방식으로 폴백
@@ -87,11 +88,12 @@
 > 텍스트를 드래그하지 않고 핫키를 누르면 키가 번역 대상으로 잡히므로,
 > 앱이 이를 감지하면 경고를 띄우고 번역하지 않습니다.
 
-## 무료 한도 안내 (2026-09 기준, 계정·시점별로 변동)
+## 무료 한도 안내 (Gemini 기준, 2026-09, 계정·시점별로 변동)
 
-- 한도는 **모델별**로 따로 적용됨. 이 앱은 일일 한도가 찬 모델을 만나면 자동으로 다음 모델로 넘어감
-- **분당 한도** (보통 분당 10~15회): 연타하면 걸림. 앱이 구글 안내 대기시간 후 **자동 재시도**함
-- **일일 한도**: 최근 삭감되어 모델·계정에 따라 수십 회 수준일 수 있음. 태평양 자정(한국 오후 4~5시) 리셋
+- 한도는 **모델별**로 따로 적용됨. Gemini는 일일 한도가 찬 모델을 만나면 자동으로 다음 모델로 넘어감
+- **분당 한도** (보통 분당 10~15회): 연타하면 걸림. 앱이 구글 안내 대기시간 후 **자동 재시도**함 (Gemini 한정)
+- **일일 한도**: 최근 삭감되어 모델·계정에 따라 수십 회 수준일 수 있음. 태평양 자정(한국 오후 4~5시) 리셋됩니다.
+- 타 엔진 한도(별도 기준): DeepL 월 50만 자, Google 월 50만 자, MS 월 200만 자, Papago 일 1만 자
 - 같은 문장 반복 번역은 API 호출 없이 캐시로 처리. 설정 화면에 오늘 호출 횟수 표시
 
 ## 문제 해결
@@ -102,7 +104,7 @@
 - "클립보드에 API 키가"가 뜨면: 복사해둔 키가 번역 대상으로 잡힌 것입니다.
   번역할 텍스트를 드래그한 뒤 핫키를 누르세요.
 - 설정의 **연결 테스트**로 키·모델 유효성을 먼저 확인하세요.
-- 진단 로그: `%AppData%\TrayTranslator\app.log` — 번역이 이상하면 이 파일 끝부분을 확인하세요.
+- 진단 로그: `%AppData%\TrayTranslator\app.log` (portable 모드는 exe 옆 `data\app.log`) — 번역이 이상하면 이 파일 끝부분을 확인하세요.
 
 ## 데이터 위치
 
@@ -153,7 +155,7 @@
 - `NeedsKey` / `HasModel` / `IsOpenAiCompat` / `IsTranslateApi` 판정 함수에 해당 엔진을 포함하거나 제외합니다.
 - OpenAI 호환 엔진이면 `OpenAiServices` 테이블에 기본 서버 주소와 고정 모델 목록을 추가합니다.
 - `TrayAppContext.cs` Provider switch에 케이스를 추가해 `TranslateAsync()` 분기 처리하고 `ActiveKey` 조회 로직을 업데이트합니다.
-- 클라이언트(`Clients/`)는 `OpenAiCompatClient`을 상속받아 `TranslateAsync()`를 구현합니다(LLM인 경우) 또는 전용 클라이언트를 사용합니다.
+- LLM이면 `OpenAiCompatClient`를 그대로 쓰고(호스트·모델·키만 설정), 번역 전용이면 전용 클라이언트(`GoogleTranslateClient` 등, 프로젝트 루트)를 사용합니다.
 
 ### 번역 전용 API (DeepL, Google 번역, Papago, Microsoft 번역)
 
