@@ -5,9 +5,10 @@
 
 - 실행 파일: `TrayTranslator/publish/TrayTranslator.exe` (단일 파일, .NET 10 필요)
   - 앞으로 업데이트는 이 폴더에 덮어씀. 업데이트 시 기존 실행은 트레이 우클릭 → 종료 후 실행
-- 메모리: 트레이 상주 시 Private 약 14MB (Working set 약 53MB, .NET 공용 런타임 포함).
-  내장 엔진 사용 중에는 별도 프로세스(llama-server)가 약 1.6GB 추가 사용
-  (Q4 모델 1.1GB + KV 256MB + 연산 버퍼, ctx 4096 기준. 앱 종료 시 함께 종료)
+- 메모리: 트레이 상주 시 **RAM** Private 약 14MB (Working set 약 53MB, .NET 공용 런타임 포함).
+  내장 엔진 사용 중에는 별도 프로세스(llama-server)가 **VRAM** 약 1.6GB 추가 사용
+  (Q4 모델 1.1GB + KV 256MB + 연산 버퍼, ctx 4096·GPU 전체 오프로드 기준.
+  GPU 없으면 같은 양을 RAM에서 사용. 앱 종료 시 함께 종료)
 - 모델: 설정의 **번역 엔진**에서 선택 (10종)
 
   | 엔진 | 종류 | 비고 |
